@@ -1,0 +1,3 @@
+[submodule "third_party/ADE20K_utils"]
+	path = third_party/ADE20K_utils
+	url = https://github.com/CSAILVision/ADE20K
