@@ -25,17 +25,10 @@ class ADE20k(data.Dataset) :
             print("Error")
             return None
         
-        print(self.index_ade20k.keys())
-        # print(index_ade20k["folder"])
         self.nfiles = len(self.index_ade20k['filename'])
     def __getitem__(self, index) :
         full_file_name = '{}/{}'.format(self.index_ade20k['folder'][index], self.index_ade20k['filename'][index])
-        print(self.index_ade20k['folder'][index])
-        # folder_name = '{}/{}'.format(self.root,full_file_name.replace(".jpg", ''))
-        # print(folder_name)
-        # folder_files = glob.glob(f"{folder_name}/*")
 
-        file_name = self.index_ade20k['filename'][index]
         info = ade20k.loadAde20K('{}/{}'.format(self.root, full_file_name))
         image = cv2.imread(info['img_name'])[:,:,::-1]
         target = info["class_mask"]
