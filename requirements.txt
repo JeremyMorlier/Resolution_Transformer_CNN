@@ -1,1 +1,8 @@
 pytorch
+pillow
+opencv_python
+numpy
+matplotlib
+ipdb
+pyyaml
+torchvision
