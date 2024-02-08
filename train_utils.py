@@ -3,7 +3,7 @@ from data import get_ADE20k
 
 def get_dataset_loaders(config):
     name=config["dataset_name"]
-    if name=="cityscapes":
+    if name=="ADE20k":
         train_loader, val_loader,train_set=get_ADE20k(
             config["dataset_dir"],
             config["batch_size"],
