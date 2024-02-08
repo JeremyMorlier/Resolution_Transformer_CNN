@@ -529,8 +529,8 @@ def get_args_parser(add_help=True):
 
 if __name__ == "__main__":
     args = get_args_parser().parse_args()
-    train_res_size = [512, 387, 256, 176, 75]
-    val_res_size = [674, 510, 338, 232, 99]
+    train_res_size = [256, 0.9*256, 0.8*256, 0.7*256, 0.6*256, 0.5*256, 0.4*256]
+    val_res_size = [338,  0.9*338, 0.8*338, 0.7*338, 0.6*338, 0.5*338, 0.4*338]
     for train_crop, val_crop in zip(train_res_size, val_res_size) :
         name = "test_" + str(train_crop) + "_" + str(val_crop)
         wandb.init(
