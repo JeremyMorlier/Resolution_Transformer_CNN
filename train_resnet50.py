@@ -3,18 +3,19 @@ import os
 import time
 import warnings
 
-import presets
+import torchvision_references.classfication.presets as presets
 import torch
 import torch.utils.data
 import torchvision
 import torchvision.transforms
-import utils
-from sampler import RASampler
+import torchvision_references.classfication.utils as utils
+from torchvision_references.classfication.sampler import RASampler
 from torch import nn
 from torch.utils.data.dataloader import default_collate
 from torchvision.transforms.functional import InterpolationMode
-from transforms import get_mixup_cutmix
+from torchvision_references.classfication.transforms import get_mixup_cutmix
 
+import wandb
 
 def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args, model_ema=None, scaler=None):
     model.train()
@@ -53,6 +54,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, arg
 
         acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
         batch_size = image.shape[0]
+        wandb.log({"train loss":loss.item(),"lr":optimizer.param_groups[0]["lr"], "train acc1":acc1.item(), "train acc5":acc5.item(), "train img/s":batch_size / (time.time() - start_time)})
         metric_logger.update(loss=loss.item(), lr=optimizer.param_groups[0]["lr"])
         metric_logger.meters["acc1"].update(acc1.item(), n=batch_size)
         metric_logger.meters["acc5"].update(acc5.item(), n=batch_size)
@@ -76,6 +78,7 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix="
             # FIXME need to take into account that the datasets
             # could have been padded in distributed setup
             batch_size = image.shape[0]
+            wandb.log({"val loss":loss.item(), "val acc1":acc1.item(), "val acc5":acc5.item()})
             metric_logger.update(loss=loss.item())
             metric_logger.meters["acc1"].update(acc1.item(), n=batch_size)
             metric_logger.meters["acc5"].update(acc5.item(), n=batch_size)
@@ -97,7 +100,7 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix="
         )
 
     metric_logger.synchronize_between_processes()
-
+    wandb.log({"val global acc1":metric_logger.acc1.global_avg, "val global acc5":metric_logger.acc5.global_avg})
     print(f"{header} Acc@1 {metric_logger.acc1.global_avg:.3f} Acc@5 {metric_logger.acc5.global_avg:.3f}")
     return metric_logger.acc1.global_avg
 
@@ -363,6 +366,7 @@ def main(args):
     print("Start training")
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
+        wandb.log({"epoch": epoch})
         if args.distributed:
             train_sampler.set_epoch(epoch)
         train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args, model_ema, scaler)
@@ -396,22 +400,22 @@ def get_args_parser(add_help=True):
     parser = argparse.ArgumentParser(description="PyTorch Classification Training", add_help=add_help)
 
     parser.add_argument("--data-path", default="/datasets01/imagenet_full_size/061417/", type=str, help="dataset path")
-    parser.add_argument("--model", default="resnet18", type=str, help="model name")
+    parser.add_argument("--model", default="resnet50", type=str, help="model name")
     parser.add_argument("--device", default="cuda", type=str, help="device (Use cuda or cpu Default: cuda)")
     parser.add_argument(
-        "-b", "--batch-size", default=32, type=int, help="images per gpu, the total batch size is $NGPU x batch_size"
+        "-b", "--batch-size", default=128, type=int, help="images per gpu, the total batch size is $NGPU x batch_size"
     )
-    parser.add_argument("--epochs", default=90, type=int, metavar="N", help="number of total epochs to run")
+    parser.add_argument("--epochs", default=600, type=int, metavar="N", help="number of total epochs to run")
     parser.add_argument(
         "-j", "--workers", default=16, type=int, metavar="N", help="number of data loading workers (default: 16)"
     )
     parser.add_argument("--opt", default="sgd", type=str, help="optimizer")
-    parser.add_argument("--lr", default=0.1, type=float, help="initial learning rate")
+    parser.add_argument("--lr", default=0.5, type=float, help="initial learning rate")
     parser.add_argument("--momentum", default=0.9, type=float, metavar="M", help="momentum")
     parser.add_argument(
         "--wd",
         "--weight-decay",
-        default=1e-4,
+        default=0.00002,
         type=float,
         metavar="W",
         help="weight decay (default: 1e-4)",
@@ -419,7 +423,7 @@ def get_args_parser(add_help=True):
     )
     parser.add_argument(
         "--norm-weight-decay",
-        default=None,
+        default=0.0,
         type=float,
         help="weight decay for Normalization layers (default: None, same value as --wd)",
     )
@@ -436,14 +440,14 @@ def get_args_parser(add_help=True):
         help="weight decay for embedding parameters for vision transformer models (default: None, same value as --wd)",
     )
     parser.add_argument(
-        "--label-smoothing", default=0.0, type=float, help="label smoothing (default: 0.0)", dest="label_smoothing"
+        "--label-smoothing", default=0.1, type=float, help="label smoothing (default: 0.0)", dest="label_smoothing"
     )
-    parser.add_argument("--mixup-alpha", default=0.0, type=float, help="mixup alpha (default: 0.0)")
-    parser.add_argument("--cutmix-alpha", default=0.0, type=float, help="cutmix alpha (default: 0.0)")
-    parser.add_argument("--lr-scheduler", default="steplr", type=str, help="the lr scheduler (default: steplr)")
-    parser.add_argument("--lr-warmup-epochs", default=0, type=int, help="the number of epochs to warmup (default: 0)")
+    parser.add_argument("--mixup-alpha", default=0.2, type=float, help="mixup alpha (default: 0.0)")
+    parser.add_argument("--cutmix-alpha", default=1.0, type=float, help="cutmix alpha (default: 0.0)")
+    parser.add_argument("--lr-scheduler", default="cosineannealinglr", type=str, help="the lr scheduler (default: steplr)")
+    parser.add_argument("--lr-warmup-epochs", default=5, type=int, help="the number of epochs to warmup (default: 0)")
     parser.add_argument(
-        "--lr-warmup-method", default="constant", type=str, help="the warmup method (default: constant)"
+        "--lr-warmup-method", default="linear", type=str, help="the warmup method (default: constant)"
     )
     parser.add_argument("--lr-warmup-decay", default=0.01, type=float, help="the decay for lr")
     parser.add_argument("--lr-step-size", default=30, type=int, help="decrease lr every step-size epochs")
@@ -471,10 +475,10 @@ def get_args_parser(add_help=True):
         help="Only test the model",
         action="store_true",
     )
-    parser.add_argument("--auto-augment", default=None, type=str, help="auto augment policy (default: None)")
+    parser.add_argument("--auto-augment", default="ta_wide", type=str, help="auto augment policy (default: None)")
     parser.add_argument("--ra-magnitude", default=9, type=int, help="magnitude of auto augment policy")
     parser.add_argument("--augmix-severity", default=3, type=int, help="severity of augmix policy")
-    parser.add_argument("--random-erase", default=0.0, type=float, help="random erasing probability (default: 0.0)")
+    parser.add_argument("--random-erase", default=0.1, type=float, help="random erasing probability (default: 0.0)")
 
     # Mixed precision training parameters
     parser.add_argument("--amp", action="store_true", help="Use torch.cuda.amp for mixed precision training")
@@ -510,12 +514,12 @@ def get_args_parser(add_help=True):
         "--val-crop-size", default=224, type=int, help="the central crop size used for validation (default: 224)"
     )
     parser.add_argument(
-        "--train-crop-size", default=224, type=int, help="the random crop size used for training (default: 224)"
+        "--train-crop-size", default=176, type=int, help="the random crop size used for training (default: 224)"
     )
     parser.add_argument("--clip-grad-norm", default=None, type=float, help="the maximum gradient norm (default None)")
     parser.add_argument("--ra-sampler", action="store_true", help="whether to use Repeated Augmentation in training")
     parser.add_argument(
-        "--ra-reps", default=3, type=int, help="number of repetitions for Repeated Augmentation (default: 3)"
+        "--ra-reps", default=4, type=int, help="number of repetitions for Repeated Augmentation (default: 3)"
     )
     parser.add_argument("--weights", default=None, type=str, help="the weights enum name to load")
     parser.add_argument("--backend", default="PIL", type=str.lower, help="PIL or tensor - case insensitive")
@@ -525,4 +529,18 @@ def get_args_parser(add_help=True):
 
 if __name__ == "__main__":
     args = get_args_parser().parse_args()
-    main(args)
+    train_res_size = [512, 387, 256, 176, 75]
+    val_res_size = [674, 510, 338, 232, 99]
+    for train_crop, val_crop in zip(train_res_size, val_res_size) :
+        name = "test_" + str(train_crop) + "_" + str(val_crop)
+        wandb.init(
+            # set the wandb project where this run will be logged
+            project="resolution_CNN_ViT",
+            name=name,
+            tags=["first_test", "Resnet50", "torchvision_reference", "train_crop_" + str(train_crop), "val_crop_" + str(val_crop)],
+            
+            # track hyperparameters and run metadata
+            config=args
+        )
+        main(args)
+        wandb.finish()
