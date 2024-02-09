@@ -529,10 +529,14 @@ def get_args_parser(add_help=True):
 
 if __name__ == "__main__":
     args = get_args_parser().parse_args()
-    train_res_size = [256, 0.9*256, 0.8*256, 0.7*256, 0.6*256, 0.5*256, 0.4*256]
-    val_res_size = [338,  0.9*338, 0.8*338, 0.7*338, 0.6*338, 0.5*338, 0.4*338]
-    for train_crop, val_crop in zip(train_res_size, val_res_size) :
+    train_crop_size = [176, 0.9*176, 0.8*176, 0.7*176, 0.6*176, 0.5*176, 0.4*176]
+    val_crop_size = [224, 0.9*224, 0.8*224, 0.7*224, 0.6*224, 0.5*224, 0.4*224]
+    val_res_size = [232,  0.9*232, 0.8*232, 0.7*232, 0.6*232, 0.5*232, 0.4*232]
+    for train_crop, val_size, val_crop in zip(train_crop_size, val_res_size, val_crop_size) :
         name = "test_" + str(train_crop) + "_" + str(val_crop)
+        args.val_crop_size, = val_crop
+        args.train_crop_size = train_crop
+        args.val_resize_size = val_size
         wandb.init(
             # set the wandb project where this run will be logged
             project="resolution_CNN_ViT",
