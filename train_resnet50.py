@@ -533,10 +533,10 @@ if __name__ == "__main__":
     val_crop_size = [224, 0.9*224, 0.8*224, 0.7*224, 0.6*224, 0.5*224, 0.4*224]
     val_res_size = [232,  0.9*232, 0.8*232, 0.7*232, 0.6*232, 0.5*232, 0.4*232]
     for train_crop, val_size, val_crop in zip(train_crop_size, val_res_size, val_crop_size) :
-        name = "test_" + str(train_crop) + "_" + str(val_crop)
-        args.val_crop_size, = val_crop
-        args.train_crop_size = train_crop
-        args.val_resize_size = val_size
+        name = "test_" + str(train_crop) + "_" + str(val_crop)  + "_" + str(val_size)
+        args.val_resize_size = int(val_size)
+        args.val_crop_size = int(val_crop)
+        args.train_crop_size = int(train_crop)
         wandb.init(
             # set the wandb project where this run will be logged
             project="resolution_CNN_ViT",
