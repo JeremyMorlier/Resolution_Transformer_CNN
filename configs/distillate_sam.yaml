@@ -1,0 +1,37 @@
+
+name: SAM_dataset_vit_h_vit_t_1
+#DATASET
+dataset_name: SAM_dataset
+root: /nasbrain/datasets/sam_dataset/images/
+subset_indices: 100000
+batch_size: 8
+num_workers: 8
+shuffle: True
+
+#MOBILE_SAM_INFO
+msam_batch_size: 4
+msam_iters: 11000
+#TEACHER
+teacher_type: sam
+teacher_name: vit_h
+teacher_pretrained: /nasbrain/j20morli/sam_checkpoints/sam_vit_h_4b8939.pth
+teacher_dim: 256
+size: 1024
+
+#Student
+student_type: sam
+student_name: vit_t
+student_pretrained: 
+student_dim: 256
+
+#training
+loss_type: MSELoss
+reduction: sum
+optimizer: adamW
+lr_scheduler: ExponentialLR
+gamma : 0.5
+lr : 0.001
+beta1: 0.95
+beta2: 0.995
+weight_decay: 0.0005
+iterations : 55000
