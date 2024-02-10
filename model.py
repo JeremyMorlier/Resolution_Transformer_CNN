@@ -1,10 +1,11 @@
 import segment_anything as sam
 import mobile_sam as msam
 
-
+import torch
+import torch.nn as nn
 class SAM_model(nn.Module) :
     def __init__(self, name, model_type, pretrained="") :
-        super().__init()
+        super().__init__()
 
         self.name = name
         self.model_type = model_type

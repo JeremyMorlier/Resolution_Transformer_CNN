@@ -2,9 +2,9 @@
 name: SAM_dataset_vit_h_vit_t_1
 #DATASET
 dataset_name: SAM_dataset
-root: /nasbrain/datasets/sam_dataset/images/
+dataset_dir: /users2/local/j20morli_sam_dataset/images/
 subset_indices: 100000
-batch_size: 8
+batch_size: 2
 num_workers: 8
 shuffle: True
 
@@ -30,8 +30,14 @@ reduction: sum
 optimizer: adamW
 lr_scheduler: ExponentialLR
 gamma : 0.5
-lr : 0.001
-beta1: 0.95
-beta2: 0.995
+lr : 0.000353
+beta1: 0.9875
+beta2: 0.999875
 weight_decay: 0.0005
 iterations : 55000
+
+checkpoints:
+  - 1
+  - 2
+  - 3
+  - 10

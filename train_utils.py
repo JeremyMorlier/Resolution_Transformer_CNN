@@ -1,6 +1,7 @@
 from data import get_ADE20k, get_ImageNet, get_SAM_dataset
 from model import SAM_model
 
+import torch
 def get_dataset_loaders(config):
     name=config["dataset_name"]
     if name=="ADE20k":
@@ -31,19 +32,20 @@ def get_dataset_loaders(config):
 def get_scheduler(config, optimizer):
     # get the learning rate scheduler
     name=config["lr_scheduler"]
-    elif "ExponentialLR" == name :
+    if name == "ExponentialLR":
         return torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=config["gamma"])
     else :
         raise NotImplementedError()
 
 def get_loss_fun(config):
-    train_crop_size=config["train_crop_size"]
-    ignore_value=config["ignore_value"]
-
-    if isinstance(train_crop_size,int):
-        crop_h,crop_w=train_crop_size,train_crop_size
-    else:
-        crop_h,crop_w=train_crop_size
+    if "train_crop_size" in config :
+        train_crop_size=config["train_crop_size"]
+        if isinstance(train_crop_size,int):
+            crop_h,crop_w=train_crop_size,train_crop_size
+        else:
+            crop_h,crop_w=train_crop_size
+    if "ignore_value" in config :
+        ignore_value=config["ignore_value"]
 
     loss_type="cross_entropy"
     if "loss_type" in config:
@@ -65,7 +67,7 @@ def get_loss_fun(config):
 def get_optimizer(model,config):
 
     # Set weight decay and optimizer parameters
-    if not config["bn_weight_decay"]:
+    if "bn_weight_decay" in config and not config["bn_weight_decay"]:
         p_bn = [p for n, p in model.named_parameters() if "bn" in n]
         p_non_bn = [p for n, p in model.named_parameters() if "bn" not in n]
         optim_params = [
@@ -76,7 +78,7 @@ def get_optimizer(model,config):
         optim_params = model.parameters()
 
     # Select optimizer
-    config_optim = config["optim"]
+    config_optim = config["optimizer"]
     if config_optim == "adam" :
         return torch.optim.Adam(optim_params, lr=config["lr"], betas=(config["beta1"], config["beta2"]) , weight_decay=config["weight_decay"])
     elif config_optim == "adamW" :

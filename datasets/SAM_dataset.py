@@ -48,6 +48,8 @@ class Segment_Anything_Dataset(Dataset):
         if self.SAM_transform != None :
             self.SAM_transform = SAM_transform(sam_size)
 
+        
+        print("Loading SAM indices")
         self.indices = [int(name[3:-4]) for name in os.listdir(root) if (os.path.isfile(os.path.join(root, name)) and name[-3:] == "jpg")]
 
     def __len__(self) :

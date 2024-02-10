@@ -2,15 +2,15 @@ import datetime
 import time
 import sys
 import time
+import math
 import torch
 import yaml
 import torch.cuda.amp as amp
-import os
 import copy
 import random
 import numpy as np
-from train_utils import get_lr_function, get_loss_fun,get_optimizer,get_dataset_loaders,get_model,get_val_dataset
-from utils.distillation import distillate_one
+from train_utils import get_loss_fun, get_optimizer, get_dataset_loaders, get_model, get_scheduler
+from project_utils.distillation import distillate_one
 import wandb
 from torchinfo import summary
 
@@ -76,7 +76,7 @@ def setup_env(config):
 def train_one(config, device):
     setup_env(config)
 
-    checkpoints = config["save_dir"]
+    checkpoints = config["checkpoints"]
     batch_size = config["batch_size"]
 
     teacher_model = get_model(config["teacher_name"], config["teacher_type"], config["teacher_pretrained"])
@@ -85,20 +85,20 @@ def train_one(config, device):
     train_loader = get_dataset_loaders(config)
 
     total_iterations = config["iterations"]
-    epochs = config["msam_batch_size"] * config["msam_iters"] / (len(dataloader) * batch_size)
-    optimizer = get_optimizer(model,config)
+    epochs = math.ceil(config["msam_batch_size"] * config["msam_iters"] / (len(train_loader) * batch_size))
+    optimizer = get_optimizer(student_model.model.image_encoder, config)
     loss_fun = get_loss_fun(config)
     scheduler = get_scheduler(config, optimizer)
 
-    # Save Model Weight and Total Flops 
-    input_size = next(iter(train_loader))[0].size()
-    input_size = (1, input_size[1], input_size[2], input_size[3])
-    statistics = summary(model, input_size=input_size, verbose=0)
+    # # Save Model Weight and Total Flops 
+    # input_size = next(iter(train_loader)).size()
+    # input_size = (1, input_size[1], input_size[2], input_size[3])
+    # statistics = summary(student_model.model.image_encoder, input_size=input_size, verbose=0)
 
-    wandb.config.update({"model_size" : statistics.total_mult_adds, "total_params" :statistics.total_params})
+    # wandb.config.update({"model_size" : statistics.total_mult_adds, "total_params" :statistics.total_params})
 
-    distillate_one(config["name"], teacher_model.image_encoder, student_model.image_encoder, loss_fun, optimizer, scheduler,
-                    device, dataloader, epochs, config["SAM_dataset"], batch_size, None, None, config["student_dim"], config["teacher_dim"]) :
+    distillate_one(config["name"], teacher_model.model.image_encoder, student_model.model.image_encoder, loss_fun, optimizer, scheduler,
+                   device, train_loader, epochs, "SAM_dataset", batch_size, None, None, config["student_dim"], config["teacher_dim"], checkpoints)
 
     return None
 
@@ -115,7 +115,7 @@ if __name__=='__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 
-    config_filenames = ["distillate_sam.yaml"]
+    config_filenames = ["distillate_sam"]
 
     config_filename = config_filenames[0]
     config = load_yaml("configs/" + config_filename + ".yaml")

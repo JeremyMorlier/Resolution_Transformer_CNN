@@ -35,11 +35,11 @@ def distillate_one(name, teacher, student, criterion, optimizer, scheduler, devi
     adaptor = None
     if student_dim != teacher_dim :
         adaptor = Adapter(student_dim, teacher_dim).to(device)
+        adaptor.train()
 
     results = []
 
     student.train()
-    adaptor.train()
     teacher.eval()
     for epoch in range(1, epochs+1) :
         

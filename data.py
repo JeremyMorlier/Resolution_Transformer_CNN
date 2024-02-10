@@ -58,8 +58,8 @@ def get_SAM_dataset(root, batch_size, size, num_workers, shuffle, subset_indices
     if subset_indices != None :
         indices = torch.randperm(len(train))[:subset_indices]
         train = Subset(train, indices)
-    train_loader = DataLoader(train, batch_size_train, shuffle, num_workers=num_workers)
-
+    train_loader = DataLoader(train, batch_size, shuffle, num_workers=num_workers)
+    
     return train_loader
 
 def get_distribution_dataset(root, batch_size, size, num_workers, shuffle, subset_indices) :
