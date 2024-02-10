@@ -1,0 +1,134 @@
+import datetime
+import time
+import sys
+import time
+import torch
+import yaml
+import torch.cuda.amp as amp
+import os
+import copy
+import random
+import numpy as np
+from train_utils import get_lr_function, get_loss_fun,get_optimizer,get_dataset_loaders,get_model,get_val_dataset
+from utils.distillation import distillate_one
+import wandb
+from torchinfo import summary
+
+def evaluate(model, data_loader, device, confmat,mixed_precision):
+    model.eval()
+    assert(isinstance(confmat,ConfusionMatrix))
+    with torch.no_grad():
+        for i,(image, target) in enumerate(data_loader):
+            image, target = image.to(device), target.to(device)
+            with amp.autocast(enabled=mixed_precision):
+                output = model(image)
+            output = torch.nn.functional.interpolate(output, size=target.shape[-2:], mode='bilinear', align_corners=False)
+            confmat.update(target.flatten(), output.argmax(1).flatten())
+
+    return confmat
+
+def train_one_epoch(model, loss_fun, optimizer, loader, lr_scheduler, mixed_precision, scaler, epoch, n_epoch, batch_size):
+    model.train()
+    losses=0
+    for t, x in enumerate(loader):
+        image, target=x
+        image, target = image.cuda(), target.cuda()
+        with amp.autocast(enabled=mixed_precision):
+            output = model(image)
+            loss = loss_fun(output, target)
+
+        optimizer.zero_grad()
+        scaler.scale(loss).backward()
+        lr_scheduler.step()
+        scaler.step(optimizer)
+        scaler.update()
+
+        losses+=loss.item()
+
+        sys.stdout.write(f'\r {time.strftime("%H:%M:%S", time.gmtime())} : Epoch - {epoch + 1}/{n_epoch} Loader {t}/{len(loader)} - loss {round(loss.item() / (batch_size), 3)} ' f' - running loss {round(losses / ((t + 1) * batch_size), 3)}')
+    print()
+    num_iter = len(loader)
+
+    wandb.log({"training running loss": losses/num_iter}, commit=False)
+    return losses/num_iter
+
+def save(model,optimizer,scheduler,epoch,path,best_mIU,scaler,run):
+    dic={
+        'model': model.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        'lr_scheduler': scheduler.state_dict(),
+        'scaler':scaler.state_dict(),
+        'epoch': epoch,
+        'best_mIU':best_mIU,
+        "run":run
+    }
+    torch.save(dic,path)
+
+def setup_env(config):
+    torch.backends.cudnn.benchmark=True
+    seed=0
+    if "RNG_seed" in config:
+        seed=config["RNG_seed"]
+    torch.manual_seed(seed)
+    random.seed(seed)
+    np.random.seed(seed) # might remove dependency on np later
+
+def train_one(config, device):
+    setup_env(config)
+
+    checkpoints = config["save_dir"]
+    batch_size = config["batch_size"]
+
+    teacher_model = get_model(config["teacher_name"], config["teacher_type"], config["teacher_pretrained"])
+    student_model = get_model(config["student_name"], config["student_type"], config["student_pretrained"])
+
+    train_loader = get_dataset_loaders(config)
+
+    total_iterations = config["iterations"]
+    epochs = config["msam_batch_size"] * config["msam_iters"] / (len(dataloader) * batch_size)
+    optimizer = get_optimizer(model,config)
+    loss_fun = get_loss_fun(config)
+    scheduler = get_scheduler(config, optimizer)
+
+    # Save Model Weight and Total Flops 
+    input_size = next(iter(train_loader))[0].size()
+    input_size = (1, input_size[1], input_size[2], input_size[3])
+    statistics = summary(model, input_size=input_size, verbose=0)
+
+    wandb.config.update({"model_size" : statistics.total_mult_adds, "total_params" :statistics.total_params})
+
+    distillate_one(config["name"], teacher_model.image_encoder, student_model.image_encoder, loss_fun, optimizer, scheduler,
+                    device, dataloader, epochs, config["SAM_dataset"], batch_size, None, None, config["student_dim"], config["teacher_dim"]) :
+
+    return None
+
+def train_main(config, device):
+
+    train_one(config, device)
+
+def load_yaml(config_filename) :
+    with open(config_filename) as file:
+        config=yaml.full_load(file)
+    return config
+ 
+if __name__=='__main__':
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
+
+    config_filenames = ["distillate_sam.yaml"]
+
+    config_filename = config_filenames[0]
+    config = load_yaml("configs/" + config_filename + ".yaml")
+    # Setup WandB
+    wandb.init(
+        # set the wandb project where this run will be logged
+        project="Distillation_Dataset",
+        name= "test",
+        tags=["sam", "vit_h", "vit_t"],
+        
+        # track hyperparameters and run metadata
+        config=config
+    )
+
+    train_main(config, device)
+    wandb.finish()
