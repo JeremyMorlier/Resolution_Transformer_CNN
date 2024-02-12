@@ -3,7 +3,7 @@ name: SAM_dataset_vit_h_vit_t_1
 #DATASET
 dataset_name: SAM_dataset
 dataset_dir: /users2/local/j20morli_sam_dataset/images/
-subset_indices: 100000
+subset_indices: 1000
 batch_size: 2
 num_workers: 8
 shuffle: True

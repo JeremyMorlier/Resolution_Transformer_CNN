@@ -121,9 +121,13 @@ def get_args_parser(add_help=True) :
     parser.add_argument("--config", default="configs/hit_uav_500epochs.yaml", type=str, help="config path")
     parser.add_argument("--do", default=False, help="do specified config or not (default False)", action="store_true")
 
-    parser.add_argument("--dataset_path", default="", type=str, help="dataset path")
+    parser.add_argument("--dataset_path", type=str, help="dataset path")
+    parser.add_argument("--batch_size", type=int, help="Batch size")
     return parser
 
+def update_config(args, config) :
+    config["dataset_dir"] = args.dataset_path if args.dataset_path else config["dataset_dir"]
+    config["batch_size"] = args.batch_size if args.batch_size else config["batch_size"]
 if __name__=='__main__':
 
     args = get_args_parser().parse_args()
@@ -134,7 +138,8 @@ if __name__=='__main__':
 
     config_filename = config_filenames[0]
     config = load_yaml("configs/" + config_filename + ".yaml")
-    config["dataset_dir"] = args.dataset_path if args.dataset_path else config["dataset_dir"]
+    update_config(args, config)
+
     # Setup WandB
     wandb.init(
         # set the wandb project where this run will be logged
