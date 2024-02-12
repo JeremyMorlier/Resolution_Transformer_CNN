@@ -3,10 +3,14 @@ import matplotlib.pyplot as plt
 
 from data_utils import *
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
+
+from segment_anything.utils.transforms import ResizeLongestSide
 
 from torchvision.datasets import ImageNet
 from datasets.ADE20k import ADE20k
+from datasets.Distribution_dataset import Distribution_dataset, White_dataset
+from datasets.SAM_dataset import Segment_Anything_Dataset
 
 import transforms as T
 
@@ -46,6 +50,28 @@ def get_ImageNet(root, train_split, val_split, batch_size_train, batch_size_val,
     val_loader =  DataLoader(val, batch_size_val, shuffle, num_workers=num_workers)
 
     return train_loader, val_loader, train
+
+def get_SAM_dataset(root, batch_size, size, num_workers, shuffle, subset_indices) :
+
+    train = Segment_Anything_Dataset(root, transform=None, target_transform=None, SAM_transform=ResizeLongestSide, sam_size=size)
+
+    if subset_indices != None :
+        indices = torch.randperm(len(train))[:subset_indices]
+        train = Subset(train, indices)
+    train_loader = DataLoader(train, batch_size, shuffle, num_workers=num_workers)
+    
+    return train_loader
+
+def get_distribution_dataset(root, batch_size, size, num_workers, shuffle, subset_indices) :
+
+    # train = Distribution_dataset(root, transform=None, target_transform=None, SAM_transform=ResizeLongestSide, sam_size=size)
+
+    # if subset_indices != None :
+    #     train = Subset(train, subset_indices)
+    # train_loader = DataLoader(train, batch_size_train, shuffle, num_workers=num_workers)
+
+    return train_loader
+
 
 if __name__ == "__main__" :
     import yaml

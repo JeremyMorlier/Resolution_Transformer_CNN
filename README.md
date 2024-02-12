@@ -6,6 +6,8 @@ The goal of this repository is to provide code to experiment the importance of r
 python3 -m venv venv1  
 source venv1/bin/activate  
 pip install -r requirements.txt  --cache-dir ../cache
+pip install -e third_party/segment-anything/
+pip install -e third_party/MobileSAM/
 ```
 
 ```bash
