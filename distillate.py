@@ -98,7 +98,7 @@ def train_one(config, device):
     # input_size = next(iter(train_loader)).size()
     # input_size = (1, input_size[1], input_size[2], input_size[3])
     # statistics = summary(student_model.model.image_encoder, input_size=input_size, verbose=0)
-
+    teacher_model.model.image_encoder, student_model.model.image_encoder = teacher_model.model.image_encoder.to(device), student_model.model.image_encoder.to(device)
     wandb.config.update({"epochs" : epochs, "total_iters" : total_iterations})
 
     distillate_one(config["name"], teacher_model.model.image_encoder, student_model.model.image_encoder, loss_fun, optimizer, scheduler,
