@@ -128,8 +128,7 @@ if __name__=='__main__':
 
     args = get_args_parser().parse_args()
 
-    # device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    device = torch.device('cpu')
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     config_filenames = ["distillate_sam"]
 
