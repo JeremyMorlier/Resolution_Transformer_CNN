@@ -6,11 +6,14 @@ import math
 import torch
 import yaml
 import torch.cuda.amp as amp
+
 import copy
 import random
 import numpy as np
 from train_utils import get_loss_fun, get_optimizer, get_dataset_loaders, get_model, get_scheduler
 from project_utils.distillation import distillate_one
+
+import argparse
 import wandb
 from torchinfo import summary
 
@@ -84,8 +87,9 @@ def train_one(config, device):
 
     train_loader = get_dataset_loaders(config)
 
-    total_iterations = config["iterations"]
-    epochs = math.ceil(config["msam_batch_size"] * config["msam_iters"] / (len(train_loader) * batch_size))
+    total_iterations = config["msam_batch_size"] * config["msam_iters"] / batch_size
+    epochs = math.ceil(total_iterations / len(train_loader))
+    # epochs = math.ceil(config["msam_batch_size"] * config["msam_iters"] / (len(train_loader) * batch_size))
     optimizer = get_optimizer(student_model.model.image_encoder, config)
     loss_fun = get_loss_fun(config)
     scheduler = get_scheduler(config, optimizer)
@@ -95,7 +99,7 @@ def train_one(config, device):
     # input_size = (1, input_size[1], input_size[2], input_size[3])
     # statistics = summary(student_model.model.image_encoder, input_size=input_size, verbose=0)
 
-    # wandb.config.update({"model_size" : statistics.total_mult_adds, "total_params" :statistics.total_params})
+    wandb.config.update({"epochs" : epochs, "total_iters" : total_iterations})
 
     distillate_one(config["name"], teacher_model.model.image_encoder, student_model.model.image_encoder, loss_fun, optimizer, scheduler,
                    device, train_loader, epochs, "SAM_dataset", batch_size, None, None, config["student_dim"], config["teacher_dim"], checkpoints)
@@ -110,15 +114,28 @@ def load_yaml(config_filename) :
     with open(config_filename) as file:
         config=yaml.full_load(file)
     return config
- 
-if __name__=='__main__':
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
+def get_args_parser(add_help=True) :
+    parser = argparse.ArgumentParser(description="Foundation models distillation", add_help=add_help)
+
+    parser.add_argument("--config", default="configs/hit_uav_500epochs.yaml", type=str, help="config path")
+    parser.add_argument("--do", default=False, help="do specified config or not (default False)", action="store_true")
+
+    parser.add_argument("--dataset_path", default="", type=str, help="dataset path")
+    return parser
+
+if __name__=='__main__':
+
+    args = get_args_parser().parse_args()
+
+    # device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    device = torch.device('cpu')
 
     config_filenames = ["distillate_sam"]
 
     config_filename = config_filenames[0]
     config = load_yaml("configs/" + config_filename + ".yaml")
+    config["dataset_dir"] = args.dataset_path if args.dataset_path else config["dataset_dir"]
     # Setup WandB
     wandb.init(
         # set the wandb project where this run will be logged

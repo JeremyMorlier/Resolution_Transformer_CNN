@@ -76,8 +76,8 @@ def distillate_one(name, teacher, student, criterion, optimizer, scheduler, devi
             loss.backward()
             optimizer.step()
 
-            sys.stdout.write(f'\r {time.strftime("%H:%M:%S", time.gmtime())} {name} : {epoch + 1}/{epochs} - loss {round(loss.item() / (batch_size), 3)} ' f' - running loss {round(running_loss.item() / ((i + 1) * batch_size), 3)}')
-            wandb.log({"loss":loss.item() / (batch_size), "running_loss":running_loss.item() / ((i + 1) * batch_size)})
+            sys.stdout.write(f'\r {time.strftime("%H:%M:%S", time.gmtime())} {name} : {epoch}/{epochs} - {i}/{len(dataloader)} - loss {round(loss.item() / (batch_size), 3)} ' f' - running loss {round(running_loss / ((i + 1) * batch_size), 3)}')
+            wandb.log({"loss":loss.item() / (batch_size), "running_loss":running_loss / ((i + 1) * batch_size)})
         scheduler.step()
 
         results.append(running_loss)

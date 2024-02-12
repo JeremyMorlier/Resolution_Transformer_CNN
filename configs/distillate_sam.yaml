@@ -9,8 +9,8 @@ num_workers: 8
 shuffle: True
 
 #MOBILE_SAM_INFO
-msam_batch_size: 4
-msam_iters: 11000
+msam_batch_size: 8
+msam_iters: 50000
 #TEACHER
 teacher_type: sam
 teacher_name: vit_h
