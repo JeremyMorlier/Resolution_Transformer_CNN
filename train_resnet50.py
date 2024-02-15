@@ -23,6 +23,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, arg
     metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value}"))
     metric_logger.add_meter("img/s", utils.SmoothedValue(window_size=10, fmt="{value}"))
 
+    running_loss = 0.0
     header = f"Epoch: [{epoch}]"
     for i, (image, target) in enumerate(metric_logger.log_every(data_loader, args.print_freq, header)):
         start_time = time.time()
@@ -30,7 +31,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, arg
         with torch.cuda.amp.autocast(enabled=scaler is not None):
             output = model(image)
             loss = criterion(output, target)
-
+        
         optimizer.zero_grad()
         if scaler is not None:
             scaler.scale(loss).backward()
@@ -54,11 +55,13 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, arg
 
         acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
         batch_size = image.shape[0]
-        wandb.log({"train loss":loss.item(),"lr":optimizer.param_groups[0]["lr"], "train acc1":acc1.item(), "train acc5":acc5.item(), "train img/s":batch_size / (time.time() - start_time)})
+        running_loss += loss.detach().item()
+        #wandb.log({"train loss":loss.item(),"lr":optimizer.param_groups[0]["lr"], "train acc1":acc1.item(), "train acc5":acc5.item(), "train img/s":batch_size / (time.time() - start_time)})
         metric_logger.update(loss=loss.item(), lr=optimizer.param_groups[0]["lr"])
         metric_logger.meters["acc1"].update(acc1.item(), n=batch_size)
         metric_logger.meters["acc5"].update(acc5.item(), n=batch_size)
         metric_logger.meters["img/s"].update(batch_size / (time.time() - start_time))
+    wandb.log({"running_loss": running_loss/(len(data_loader)*batch_size), "average acc1":metric_logger.acc1.avg(), "average acc5":metric_logger.acc5.avg(), "average img/s":metric_logger.img/s.avg()})
 
 
 def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix=""):
@@ -78,7 +81,7 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix="
             # FIXME need to take into account that the datasets
             # could have been padded in distributed setup
             batch_size = image.shape[0]
-            wandb.log({"val loss":loss.item(), "val acc1":acc1.item(), "val acc5":acc5.item()})
+            # wandb.log({"val loss":loss.item(), "val acc1":acc1.item(), "val acc5":acc5.item()})
             metric_logger.update(loss=loss.item())
             metric_logger.meters["acc1"].update(acc1.item(), n=batch_size)
             metric_logger.meters["acc5"].update(acc5.item(), n=batch_size)
@@ -403,7 +406,7 @@ def get_args_parser(add_help=True):
     parser.add_argument("--model", default="resnet50", type=str, help="model name")
     parser.add_argument("--device", default="cuda", type=str, help="device (Use cuda or cpu Default: cuda)")
     parser.add_argument(
-        "-b", "--batch-size", default=128, type=int, help="images per gpu, the total batch size is $NGPU x batch_size"
+        "-b", "--batch-size", default=1024, type=int, help="images per gpu, the total batch size is $NGPU x batch_size"
     )
     parser.add_argument("--epochs", default=600, type=int, metavar="N", help="number of total epochs to run")
     parser.add_argument(
@@ -508,7 +511,7 @@ def get_args_parser(add_help=True):
         "--interpolation", default="bilinear", type=str, help="the interpolation method (default: bilinear)"
     )
     parser.add_argument(
-        "--val-resize-size", default=256, type=int, help="the resize size used for validation (default: 256)"
+        "--val-resize-size", default=232, type=int, help="the resize size used for validation (default: 256)"
     )
     parser.add_argument(
         "--val-crop-size", default=224, type=int, help="the central crop size used for validation (default: 224)"
