@@ -368,13 +368,16 @@ def main(args):
 
     print("Start training")
     start_time = time.time()
+
+    best_acc1 = 0.0
+
     for epoch in range(args.start_epoch, args.epochs):
         wandb.log({"epoch": epoch})
         if args.distributed:
             train_sampler.set_epoch(epoch)
         train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args, model_ema, scaler)
         lr_scheduler.step()
-        evaluate(model, criterion, data_loader_test, device=device)
+        acc1_epoch = evaluate(model, criterion, data_loader_test, device=device)
         if model_ema:
             evaluate(model_ema, criterion, data_loader_test, device=device, log_suffix="EMA")
         if args.output_dir:
@@ -389,7 +392,8 @@ def main(args):
                 checkpoint["model_ema"] = model_ema.state_dict()
             if scaler:
                 checkpoint["scaler"] = scaler.state_dict()
-            utils.save_on_master(checkpoint, os.path.join(args.output_dir, f"model_{epoch}.pth"))
+            if acc1_epoch >= best_acc1 :
+                utils.save_on_master(checkpoint, os.path.join(args.output_dir, f"model_best.pth"))
             utils.save_on_master(checkpoint, os.path.join(args.output_dir, "checkpoint.pth"))
 
     total_time = time.time() - start_time
