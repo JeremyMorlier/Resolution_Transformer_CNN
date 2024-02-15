@@ -393,6 +393,7 @@ def main(args):
             if scaler:
                 checkpoint["scaler"] = scaler.state_dict()
             if acc1_epoch >= best_acc1 :
+                best_acc1 = acc1_epoch
                 utils.save_on_master(checkpoint, os.path.join(args.output_dir, f"model_best.pth"))
             utils.save_on_master(checkpoint, os.path.join(args.output_dir, "checkpoint.pth"))
 
