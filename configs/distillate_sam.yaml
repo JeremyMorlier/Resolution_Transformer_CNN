@@ -30,12 +30,14 @@ reduction: sum
 optimizer: adamW
 lr_scheduler: ExponentialLR
 gamma : 0.5
-lr : 0.000353
-beta1: 0.9875
-beta2: 0.999875
+lr : 0.00025
+beta1: 0.99375
+beta2: 0.9999375
 weight_decay: 0.0005
 iterations : 55000
 
+#WANDB and logging
+save_path: checkpoints/
 checkpoints:
   - 1
   - 2

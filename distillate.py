@@ -79,17 +79,19 @@ def setup_env(config):
 def train_one(config, device):
     setup_env(config)
 
+    train_loader = get_dataset_loaders(config)
+
     checkpoints = config["checkpoints"]
     batch_size = config["batch_size"]
+
+    total_iterations = config["msam_batch_size"] * config["msam_iters"] / batch_size
+    epochs = math.ceil(total_iterations / len(train_loader))
+    checkpoints.append(epochs)
+    checkpoints += list(np.linspace(0, epochs, 50, dtype=int))
 
     teacher_model = get_model(config["teacher_name"], config["teacher_type"], config["teacher_pretrained"])
     student_model = get_model(config["student_name"], config["student_type"], config["student_pretrained"])
 
-    train_loader = get_dataset_loaders(config)
-
-    total_iterations = config["msam_batch_size"] * config["msam_iters"] / batch_size
-    epochs = math.ceil(total_iterations / len(train_loader))
-    # epochs = math.ceil(config["msam_batch_size"] * config["msam_iters"] / (len(train_loader) * batch_size))
     optimizer = get_optimizer(student_model.model.image_encoder, config)
     loss_fun = get_loss_fun(config)
     scheduler = get_scheduler(config, optimizer)
@@ -102,7 +104,7 @@ def train_one(config, device):
     wandb.config.update({"epochs" : epochs, "total_iters" : total_iterations})
 
     distillate_one(config["name"], teacher_model.model.image_encoder, student_model.model.image_encoder, loss_fun, optimizer, scheduler,
-                   device, train_loader, epochs, "SAM_dataset", batch_size, None, None, config["student_dim"], config["teacher_dim"], checkpoints)
+                   device, train_loader, epochs, "SAM_dataset", batch_size, None, None, config["student_dim"], config["teacher_dim"], config["save_path"] checkpoints)
 
     return None
 
