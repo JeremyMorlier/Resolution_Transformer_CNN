@@ -11,7 +11,7 @@ orig_beta1 = 0.9
 orig_beta2 = 0.999
 
 # Newvalues
-new_batch_size = 4
+new_batch_size = 2
 new_lr = 0
 new_beta1 = 0
 new_beta2 = 0
@@ -23,4 +23,4 @@ if optimizer in ["adam", "adamW"] :
     new_beta2 = 1 - (ratio * (1 - orig_beta2))
 else :
     new_lr = orig_lr * ratio
-print(ratio, new_lr, new_beta1, new_beta2)
+print(new_batch_size, ratio, new_lr, new_beta1, new_beta2)

@@ -31,7 +31,7 @@ class Adapter(nn.Module) :
         return self.linear(input)
 
 
-def distillate_one(name, teacher, student, criterion, optimizer, scheduler, device, dataloader, epochs, data_name, batch_size, teacher_preprocess, student_preprocess, student_dim, teacher_dim, checkpoints=[]) :
+def distillate_one(name, teacher, student, criterion, optimizer, scheduler, device, dataloader, epochs, data_name, batch_size, teacher_preprocess, student_preprocess, student_dim, teacher_dim, save_path, checkpoints=[]) :
     adaptor = None
     if student_dim != teacher_dim :
         adaptor = Adapter(student_dim, teacher_dim).to(device)
@@ -46,7 +46,7 @@ def distillate_one(name, teacher, student, criterion, optimizer, scheduler, devi
         running_loss = 0.0
 
         optimizer.zero_grad()
-        print("Epoch : ", epoch)
+        print("\r\n Epoch : ", epoch)
         for i, inputs in enumerate(dataloader) :
 
             # Transform inputs based on dataset class
@@ -75,16 +75,17 @@ def distillate_one(name, teacher, student, criterion, optimizer, scheduler, devi
             loss = criterion(student_outputs, teacher_outputs)
             loss.backward()
             optimizer.step()
+            running_loss += loss.detach().item()
 
             sys.stdout.write(f'\r {time.strftime("%H:%M:%S", time.gmtime())} {name} : {epoch}/{epochs} - {i}/{len(dataloader)} - loss {round(loss.item() / (batch_size), 3)} ' f' - running loss {round(running_loss / ((i + 1) * batch_size), 3)}')
-            wandb.log({"loss":loss.item() / (batch_size), "running_loss":running_loss / ((i + 1) * batch_size)})
+            #wandb.log({"loss":loss.item() / (batch_size), "running_loss":running_loss / ((i + 1) * batch_size)})
         scheduler.step()
-
+        wandb.log({"running_loss":running_loss / (len(dataloader) * batch_size)})
         results.append(running_loss)
         if epoch in checkpoints :
             save_name = name + "_" + str(epoch) + ".pth"
             torch.save(student.state_dict() , save_name)
             print(" \r\nSave at " + str(epoch) + " epochs      File Name : " + save_name)
             print(running_loss)
-            
+
     return results
