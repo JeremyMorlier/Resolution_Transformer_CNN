@@ -495,7 +495,7 @@ def get_args_parser(add_help=True):
     parser.add_argument("--world-size", default=1, type=int, help="number of distributed processes")
     parser.add_argument("--dist-url", default="env://", type=str, help="url used to set up distributed training")
     parser.add_argument(
-        "--model-ema", action="store_true", help="enable tracking Exponential Moving Average of model parameters"
+        "--model-ema", action="store_false", help="enable tracking Exponential Moving Average of model parameters"
     )
     parser.add_argument(
         "--model-ema-steps",
@@ -525,7 +525,7 @@ def get_args_parser(add_help=True):
         "--train-crop-size", default=176, type=int, help="the random crop size used for training (default: 224)"
     )
     parser.add_argument("--clip-grad-norm", default=None, type=float, help="the maximum gradient norm (default None)")
-    parser.add_argument("--ra-sampler", action="store_true", help="whether to use Repeated Augmentation in training")
+    parser.add_argument("--ra-sampler", action="store_false", help="whether to use Repeated Augmentation in training")
     parser.add_argument(
         "--ra-reps", default=4, type=int, help="number of repetitions for Repeated Augmentation (default: 3)"
     )
