@@ -540,9 +540,12 @@ if __name__ == "__main__":
     # train_crop_size = [176, 0.9*176, 0.8*176, 0.7*176, 0.6*176, 0.5*176, 0.4*176]
     # val_crop_size = [224, 0.9*224, 0.8*224, 0.7*224, 0.6*224, 0.5*224, 0.4*224]
     # val_res_size = [232,  0.9*232, 0.8*232, 0.7*232, 0.6*232, 0.5*232, 0.4*232]
-    train_crop_size = [0.8*176, 0.7*176, 0.6*176, 0.5*176, 0.4*176]
-    val_crop_size = [0.8*224, 0.7*224, 0.6*224, 0.5*224, 0.4*224]
-    val_res_size = [0.8*232, 0.7*232, 0.6*232, 0.5*232, 0.4*232]
+    train_crop_size = [176, int(0.9*176), int(0.8*176)]
+    val_crop_size = [224, int(0.9*224) , int(0.8*224)]
+    val_res_size = [232, int(0.9*232), int(0.8*232)]
+    # train_crop_size = [0.8*176, 0.7*176, 0.6*176, 0.5*176, 0.4*176]
+    # val_crop_size = [0.8*224, 0.7*224, 0.6*224, 0.5*224, 0.4*224]
+    # val_res_size = [0.8*232, 0.7*232, 0.6*232, 0.5*232, 0.4*232]
     for train_crop, val_size, val_crop in zip(train_crop_size, val_res_size, val_crop_size) :
         name = "test_" + str(train_crop) + "_" + str(val_crop)  + "_" + str(val_size)
         args.val_resize_size = int(val_size)
