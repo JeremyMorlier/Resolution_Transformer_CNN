@@ -547,6 +547,9 @@ if __name__ == "__main__":
     #     args.val_crop_size = int(val_crop)
     #     args.train_crop_size = int(train_crop)
     name = "test_" + str(args.train_crop_size) + "_" + str(args.val_crop_size)  + "_" + str(args.val_resize_size)
+    args.output_dir = args.output_dir + "/" + name
+    if not os.path.isdir(args.output_dir) :
+        os.mkdir(args.output_dir)
     wandb.init(
         # set the wandb project where this run will be logged
         project="resolution_CNN_ViT",
