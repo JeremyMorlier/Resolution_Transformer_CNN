@@ -103,10 +103,26 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix="
         )
 
     metric_logger.synchronize_between_processes()
-    wandb.log({"val global acc1":metric_logger.acc1.global_avg, "val global acc5":metric_logger.acc5.global_avg})
+   
     print(f"{header} Acc@1 {metric_logger.acc1.global_avg:.3f} Acc@5 {metric_logger.acc5.global_avg:.3f}")
-    return metric_logger.acc1.global_avg
+    return metric_logger.acc1.global_avg, metric_logger.acc5.global_avg
 
+def resolution_evaluate(model, dataset, criterion, val_crop_resolutions, val_resize_resolutions, device, valdir, args) :
+
+    all_acc1s = []
+    all_acc5s = []
+    for val_resize_resolution in val_resize_resolutions :
+        acc1s = []
+        acc5s = []
+        for val_crop_resolution in val_crop_resolutions :
+            dataset_test, test_sampler = load_val_data(valdir, val_crop_resolutions,val_resize_resolution,  args)
+            data_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, sampler=test_sampler, num_workers=args.workers)
+            acc1_epoch, acc5_epoch = evaluate(model, criterion, data_loader, device=device)
+            print("Val crop : ",val_crop_resolution, " Val Resize : ", val_resize_resolution, " Acc1 : ", acc1_epoch," Acc5 : ", acc5_epoch)
+            acc1s.append(acc1_epoch)
+            acc5s.append(acc5_epoch)
+        all_acc1s.append(acc1s)
+        all_acc5s.append(acc5s)
 
 def _get_cache_path(filepath):
     import hashlib
@@ -116,6 +132,54 @@ def _get_cache_path(filepath):
     cache_path = os.path.expanduser(cache_path)
     return cache_path
 
+def load_val_data(valdir, resolution_crop_size, resolution_resize_size, args):
+    # Data loading code
+    print("Loading data")
+    val_resize_size, val_crop_size = (
+        resolution_resize_size,
+        resolution_crop_size,
+    )
+    interpolation = InterpolationMode(args.interpolation)
+
+    print("Loading validation data")
+    cache_path = _get_cache_path(valdir)
+    if args.cache_dataset and os.path.exists(cache_path):
+        # Attention, as the transforms are also cached!
+        print(f"Loading dataset_test from {cache_path}")
+        # TODO: this could probably be weights_only=True
+        dataset_test, _ = torch.load(cache_path, weights_only=False)
+    else:
+        if args.weights and args.test_only:
+            weights = torchvision.models.get_weight(args.weights)
+            preprocessing = weights.transforms(antialias=True)
+            if args.backend == "tensor":
+                preprocessing = torchvision.transforms.Compose([torchvision.transforms.PILToTensor(), preprocessing])
+
+        else:
+            preprocessing = presets.ClassificationPresetEval(
+                crop_size=val_crop_size,
+                resize_size=val_resize_size,
+                interpolation=interpolation,
+                backend=args.backend,
+                use_v2=args.use_v2,
+            )
+
+        dataset_test = torchvision.datasets.ImageFolder(
+            valdir,
+            preprocessing,
+        )
+        if args.cache_dataset:
+            print(f"Saving dataset_test to {cache_path}")
+            utils.mkdir(os.path.dirname(cache_path))
+            utils.save_on_master((dataset_test, valdir), cache_path)
+
+    print("Creating data loaders")
+    if args.distributed:
+        test_sampler = torch.utils.data.distributed.DistributedSampler(dataset_test, shuffle=False)
+    else:
+        test_sampler = torch.utils.data.SequentialSampler(dataset_test)
+
+    return dataset_test, test_sampler
 
 def load_data(traindir, valdir, args):
     # Data loading code
@@ -377,7 +441,8 @@ def main(args):
             train_sampler.set_epoch(epoch)
         train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args, model_ema, scaler)
         lr_scheduler.step()
-        acc1_epoch = evaluate(model, criterion, data_loader_test, device=device)
+        acc1_epoch, acc5_epoch = evaluate(model, criterion, data_loader_test, device=device)
+        wandb.log({"val global acc1":acc1_epoch, "val global acc5":acc5_epoch})
         if model_ema:
             evaluate(model_ema, criterion, data_loader_test, device=device, log_suffix="EMA")
         if args.output_dir:
@@ -397,9 +462,17 @@ def main(args):
                 utils.save_on_master(checkpoint, os.path.join(args.output_dir, f"model_best.pth"))
             utils.save_on_master(checkpoint, os.path.join(args.output_dir, "checkpoint.pth"))
 
+    # Last model evaluation
+    # TODO : it should be better to evaluate on best available model
+    # val_crop_resolutions = [112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304, 320, 336, 352]
+    # val_resize_resolutions = [112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304, 320, 336, 352]
+    # print("test")
+    # results = resolution_evaluate(model, dataset, criterion, val_crop_resolutions, val_resize_resolutions, device, valdir, args)
+
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Training time {total_time_str}")
+
 
 
 def get_args_parser(add_help=True):
