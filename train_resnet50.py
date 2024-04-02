@@ -3,17 +3,20 @@ import os
 import time
 import warnings
 
-import torchvision_references.classfication.presets as presets
 import torch
 import torch.utils.data
 import torchvision
 import torchvision.transforms
-import torchvision_references.classfication.utils as utils
-from torchvision_references.classfication.sampler import RASampler
+
 from torch import nn
 from torch.utils.data.dataloader import default_collate
 from torchvision.transforms.functional import InterpolationMode
-from torchvision_references.classfication.transforms import get_mixup_cutmix
+
+import torchvision_references.classification.presets as presets
+from torchvision_references.classification.transforms import get_mixup_cutmix
+import torchvision_references.classification.utils as utils
+from torchvision_references.classification.sampler import RASampler
+from torchvision_references.models import get_model
 
 import wandb
 
@@ -315,7 +318,7 @@ def main(args):
     )
 
     print("Creating model")
-    model = torchvision.models.get_model(args.model, weights=args.weights, num_classes=num_classes)
+    model = get_model(args.model, weights=args.weights, num_classes=num_classes, first_conv_resize=args.first_conv_resize)
     model.to(device)
 
     if args.distributed and args.sync_bn:
@@ -607,6 +610,8 @@ def get_args_parser(add_help=True):
     parser.add_argument("--weights", default=None, type=str, help="the weights enum name to load")
     parser.add_argument("--backend", default="PIL", type=str.lower, help="PIL or tensor - case insensitive")
     parser.add_argument("--use-v2", action="store_true", help="Use V2 transforms")
+
+    parser.add_argument("--first-conv-resize",  default=0, type=int, help="Resize Value after first conv")
     return parser
 
 
@@ -621,7 +626,7 @@ if __name__ == "__main__":
     #     args.val_resize_size = int(val_size)
     #     args.val_crop_size = int(val_crop)
     #     args.train_crop_size = int(train_crop)
-    name = "test_" + str(args.train_crop_size) + "_" + str(args.val_crop_size)  + "_" + str(args.val_resize_size)
+    name = "test_" + str(args.train_crop_size) + "_" + str(args.val_crop_size)  + "_" + str(args.val_resize_size) + "_" + str(args.first_conv_resize)
     args.output_dir = args.output_dir + "/" + name
     if not os.path.isdir(args.output_dir) :
         os.mkdir(args.output_dir)
