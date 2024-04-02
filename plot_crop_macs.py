@@ -5,7 +5,8 @@ from torchinfo import summary
 
 import numpy as np
 import matplotlib.pyplot as plt
-
+import time
+from torch.profiler import profile, record_function, ProfilerActivity
 def get_args_parser(add_help=True):
     import argparse
 
@@ -20,27 +21,47 @@ def get_args_parser(add_help=True):
 
 if __name__ == "__main__":
     args = get_args_parser().parse_args()
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    #device = torch.device("cpu")
 
     train_crop_size = np.arange(224, 100, -1)
-    model = torchvision.models.get_model(args.model, weights=args.weights, num_classes=1000)
+    model = torchvision.models.get_model(args.model, weights=args.weights, num_classes=1000).to(device)
 
     macs = []
+    times = []
 
     for train_crop in train_crop_size :
         input_size_train = (1, 3, train_crop, train_crop)
+        input_size_train2 = (100, 3, train_crop, train_crop)
+        test = torch.rand(input_size_train2).to(device)
+
         if train_crop in [160, 161] :
             info = summary(model, input_size_train, col_names=("output_size", "num_params", "mult_adds"))
         else :
             info = summary(model, input_size_train, verbose=0, col_names=("output_size", "num_params", "mult_adds"))
         macs.append(info.total_mult_adds)
         print(input_size_train, info.total_mult_adds)
+
+        # Warmup
+        model(test)
+        model(test)
+        model(test)
+        with profile(activities=[ProfilerActivity.CUDA], record_shapes=True) as prof:
+            with record_function("model_inference"):
+                model(test)
+        print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
+        #print(prof.key_averages())
+        #print(prof.total_average())
+        print(prof.profiler.self_cpu_time_total)
+        #print(prof.function_events.self_cpu_time_total)
+
     macs = np.array(macs)
     plt.plot(train_crop_size, macs/macs[0])
     plt.scatter(train_crop_size, macs/macs[0])
     plt.grid()
     plt.xlabel("input image size")
     plt.ylabel("Total MultAdds normalized by largest")
-    plt.savefig("test_Normalize.png")
+    plt.savefig("test_Normalize.svg")
     plt.close()
 
     plt.plot(train_crop_size, macs)
@@ -48,4 +69,4 @@ if __name__ == "__main__":
     plt.grid()
     plt.xlabel("input image size")
     plt.ylabel("Total MultAdds")
-    plt.savefig("test_notNormalize.png")
+    plt.savefig("test_notNormalize.svg")

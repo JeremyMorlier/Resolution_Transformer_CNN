@@ -452,6 +452,8 @@ def main(args):
                 "lr_scheduler": lr_scheduler.state_dict(),
                 "epoch": epoch,
                 "args": args,
+                "acc1_epoch" : acc1_epoch,
+                "acc5_epoch" : acc5_epoch,
             }
             if model_ema:
                 checkpoint["model_ema"] = model_ema.state_dict()
