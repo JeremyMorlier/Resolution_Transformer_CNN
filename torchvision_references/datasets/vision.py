@@ -4,7 +4,7 @@ from typing import Any, Callable, List, Optional, Tuple, Union
 
 import torch.utils.data as data
 
-from ..utils import _log_api_usage_once
+from torchvision.utils import _log_api_usage_once
 
 
 class VisionDataset(data.Dataset):

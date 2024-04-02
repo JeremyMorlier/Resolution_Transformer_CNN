@@ -12,11 +12,11 @@ from torch import nn
 from torch.utils.data.dataloader import default_collate
 from torchvision.transforms.functional import InterpolationMode
 
-import torchvision_references.classification.presets as presets
-from torchvision_references.classification.transforms import get_mixup_cutmix
-import torchvision_references.classification.utils as utils
-from torchvision_references.classification.sampler import RASampler
-from torchvision_references.models import get_model
+import torchvision_references.references.classification.presets as presets
+from torchvision_references.references.classification.transforms import get_mixup_cutmix
+import torchvision_references.references.classification.utils as utils
+from torchvision_references.references.classification.sampler import RASampler
+from torchvision_references.references.models import get_model
 
 import wandb
 
