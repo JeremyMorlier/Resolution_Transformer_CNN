@@ -9,7 +9,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-from ..io.image import _read_png_16
+from torchvision.io.image import _read_png_16
 from .utils import _read_pfm, verify_str_arg
 from .vision import VisionDataset
 

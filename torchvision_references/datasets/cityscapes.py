@@ -99,7 +99,7 @@ class Cityscapes(VisionDataset):
         CityscapesClass("train", 31, 16, "vehicle", 7, True, False, (0, 80, 100)),
         CityscapesClass("motorcycle", 32, 17, "vehicle", 7, True, False, (0, 0, 230)),
         CityscapesClass("bicycle", 33, 18, "vehicle", 7, True, False, (119, 11, 32)),
-        CityscapesClass("license plate", -1, -1, "vehicle", 7, False, True, (0, 0, 142)),
+        CityscapesClass("license plate", 34, 255, "vehicle", 7, False, True, (0, 0, 142)),
     ]
 
     def __init__(
@@ -171,6 +171,14 @@ class Cityscapes(VisionDataset):
 
                 self.images.append(os.path.join(img_dir, file_name))
                 self.targets.append(target_types)
+
+        # Check excluded classes
+        self.exclude_classes = []
+        for cityscape_class in Cityscapes.classes :
+            name, id, train_id, category, category_id, has_instances, ignore_in_eval, color = cityscape_class
+            if ignore_in_eval :
+                self.exclude_classes.append(id)
+            
 
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
         """

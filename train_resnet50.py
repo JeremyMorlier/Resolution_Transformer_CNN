@@ -16,7 +16,7 @@ import torchvision_references.references.classification.presets as presets
 from torchvision_references.references.classification.transforms import get_mixup_cutmix
 import torchvision_references.references.classification.utils as utils
 from torchvision_references.references.classification.sampler import RASampler
-from torchvision_references.references.models import get_model
+from torchvision_references.models import get_model
 
 import wandb
 

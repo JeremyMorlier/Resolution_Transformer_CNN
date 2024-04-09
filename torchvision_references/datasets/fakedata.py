@@ -2,7 +2,7 @@ from typing import Any, Callable, Optional, Tuple
 
 import torch
 
-from .. import transforms
+from torchvision import transforms
 from .vision import VisionDataset
 
 
