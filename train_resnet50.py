@@ -447,7 +447,8 @@ def main(args):
         acc1_epoch, acc5_epoch = evaluate(model, criterion, data_loader_test, device=device)
         wandb.log({"val global acc1":acc1_epoch, "val global acc5":acc5_epoch})
         if model_ema:
-            evaluate(model_ema, criterion, data_loader_test, device=device, log_suffix="EMA")
+            acc1_ema, acc5_ema = evaluate(model_ema, criterion, data_loader_test, device=device, log_suffix="EMA")
+            wandb.log({"ema acc1":acc1_ema, "ema acc5":acc5_ema})
         if args.output_dir:
             checkpoint = {
                 "model": model_without_ddp.state_dict(),
