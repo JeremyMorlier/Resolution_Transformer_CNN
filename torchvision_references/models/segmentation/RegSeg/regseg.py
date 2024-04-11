@@ -1,5 +1,6 @@
 from functools import partial
 from typing import Any, Optional, Sequence
+from collections import OrderedDict
 
 import torch
 from torch import nn
@@ -14,7 +15,8 @@ from .blocks import *
 from .competitor_blocks import BiseNetDecoder,SFNetDecoder,FaPNDecoder
 
 __all__ = [
-    "RegSeg",
+    "RegSeg_model",
+    "regseg_custom",
 ]
 
 
@@ -23,11 +25,12 @@ class RegSeg_model(nn.Module):
     # exp48_decoder26 is what we call RegSeg in our paper
     # exp53_decoder29 is a larger version of exp48_decoder26
     # all the other models are for ablation studies
-    def __init__(self, name, num_classes, pretrained="", ablate_decoder=False,change_num_classes=False, gw=16, channels=[48, 128, 256]):
+    def __init__(self, regseg_name, num_classes, pretrained="", ablate_decoder=False,change_num_classes=False, gw=16, channels=[48, 128, 256]):
         super().__init__()
         # TODO: change for config parameter
-        self.stem=ConvBnAct(1,32,3,2,1)
-        body_name, decoder_name=name.split("_")
+        self.stem=ConvBnAct(3,32,3,2,1)
+        print(regseg_name)
+        body_name, decoder_name=regseg_name.split("_")
         if "exp30" == body_name:
             self.body=RegSegBody(5*[[1,4]]+8*[[1,10]], gw, channels)
         elif "exp43"==body_name:
@@ -103,10 +106,21 @@ class RegSeg_model(nn.Module):
         # Decoder starts here
         x=self.decoder(x)
         x = F.interpolate(x, size=input_shape, mode='bilinear', align_corners=False)
-        return x
+
+        # Torchvision compatible output
+        result = OrderedDict()
+        result["out"] = x
+
+        # if self.aux_classifier is not None:
+        #     x = features["aux"]
+        #     x = self.aux_classifier(x)
+        #     x = F.interpolate(x, size=input_shape, mode="bilinear", align_corners=False)
+        #     result["aux"] = x
+
+        return result
 
 @register_model()
-def RegSeg(
+def regseg_custom(
     *,
     weights = None,
     progress: bool = True,
@@ -147,7 +161,7 @@ def RegSeg(
         num_classes = _ovewrite_value_param("num_classes", num_classes, len(weights.meta["categories"]))
         aux_loss = _ovewrite_value_param("aux_loss", aux_loss, True)
 
-    model = RegSeg_model(**kwargs)
+    model = RegSeg_model(num_classes=num_classes, **kwargs)
 
     if weights is not None:
         model.load_state_dict(weights.get_state_dict(progress=progress, check_hash=True))
