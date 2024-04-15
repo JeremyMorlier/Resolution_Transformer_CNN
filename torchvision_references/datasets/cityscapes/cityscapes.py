@@ -6,8 +6,28 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from PIL import Image
 
-from .utils import extract_archive, iterable_to_str, verify_str_arg
-from .vision import VisionDataset
+from ..utils import extract_archive, iterable_to_str, verify_str_arg
+from ..vision import VisionDataset
+
+from . import class_uniform_sampling as uniform
+
+def find_cityscapes_filenames(images_dir,targets_dir,split,target_suffix):
+    all_imgs=[]
+    images_dir=os.path.join(images_dir,split)
+    targets_dir=os.path.join(targets_dir,split)
+    for city in sorted(os.listdir(images_dir)):
+        if city[0]==".":
+            continue
+        img_dir = os.path.join(images_dir,city)
+        target_dir = os.path.join(targets_dir, city)
+        for file_name in sorted(os.listdir(img_dir)):
+            target_types = []
+            target_name = '{}_{}'.format(file_name.split('_leftImg8bit')[0],target_suffix)
+            target_types.append(os.path.join(target_dir, target_name))
+            image_filename=os.path.join(img_dir, file_name)
+            target_filename=target_types[0]
+            all_imgs.append((image_filename,target_filename))
+    return all_imgs
 
 
 class Cityscapes(VisionDataset):
@@ -111,6 +131,8 @@ class Cityscapes(VisionDataset):
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         transforms: Optional[Callable] = None,
+        class_uniform_pct=0,
+        num_classes=35
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         self.mode = "gtFine" if mode == "fine" else "gtCoarse"
@@ -120,6 +142,9 @@ class Cityscapes(VisionDataset):
         self.split = split
         self.images = []
         self.targets = []
+
+        self.class_uniform_pct=class_uniform_pct
+        self.num_classes = num_classes
 
         verify_str_arg(mode, "mode", ("fine", "coarse"))
         if mode == "fine":
@@ -137,6 +162,7 @@ class Cityscapes(VisionDataset):
             for value in self.target_type
         ]
 
+        # Extract images and targets if not done
         if not os.path.isdir(self.images_dir) or not os.path.isdir(self.targets_dir):
 
             if split == "train_extra":
@@ -157,7 +183,13 @@ class Cityscapes(VisionDataset):
                     "Dataset not found or incomplete. Please make sure all required folders for the"
                     ' specified "split" and "mode" are inside the "root" directory'
                 )
-
+        # Generate all images paths
+        if "train" in self.split:
+            self.all_imgs.extend(find_cityscapes_filenames(self.images_dir,self.targets_dir,"train",target_suffix))
+        if "val" in self.split:
+            self.all_imgs.extend(find_cityscapes_filenames(self.images_dir,self.targets_dir,"val",target_suffix))
+        if "test" in self.split:
+            self.all_imgs.extend(find_cityscapes_filenames(self.images_dir,self.targets_dir,"test",target_suffix))
         for city in os.listdir(self.images_dir):
             img_dir = os.path.join(self.images_dir, city)
             target_dir = os.path.join(self.targets_dir, city)
@@ -172,6 +204,20 @@ class Cityscapes(VisionDataset):
                 self.images.append(os.path.join(img_dir, file_name))
                 self.targets.append(target_types)
 
+        # Check for centroids
+        if self.class_uniform_pct>0 and self.split in ["train","trainval"]:
+            json_fn=self.root+"_train_centroids.json"
+            self.centroids = uniform.build_centroids(
+                self.all_imgs,
+                self.num_classes,
+                id2trainid=False,
+                json_fn=json_fn
+            )
+        else:
+            self.centroids=[]
+
+        self.build_epoch()
+
         # Check excluded classes
         self.exclude_classes = []
         for cityscape_class in Cityscapes.classes :
@@ -179,6 +225,22 @@ class Cityscapes(VisionDataset):
             if ignore_in_eval :
                 self.exclude_classes.append(id)
             
+
+    def build_epoch(self):
+        """
+        For class uniform sampling ... every epoch, we want to recompute
+        which tiles from which images we want to sample from, so that the
+        sampling is uniformly random.
+        """
+        if len(self.centroids)!= 0:
+            self.images = uniform.build_epoch(
+                self.images,
+                self.centroids,
+                self.num_classes,
+                self.class_uniform_pct
+            )
+        else:
+            self.images=self.images
 
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
         """
