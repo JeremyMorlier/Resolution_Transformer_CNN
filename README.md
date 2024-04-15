@@ -26,6 +26,6 @@ python train_resnet50.py --model resnet50 --batch-size 256 --lr 0.1 \
 ```
 
 ```bash
-python3 train_semantic.py --data-path /nasbrain/datasets/cityscapes/ --lr 0.05 --dataset cityscapes -b 8 --model regseg_custom --epochs 500 --momentum 0.9 --exclude-classes 14 15 16 \
---lr-warmup-epochs 9 --lr-warmup-method linear --lr-warmup-start-factor 0.1 --scale-low-size 400 --scale-high-size 1600 --random-crop-size 1024 --augmode randaug_reduced --regseg_name
+python3 train_semantic.py --data-path /nasbrain/datasets/cityscapes/ --lr 0.05 --dataset cityscapes -b 8 --model regseg_custom --epochs 1000 --momentum 0.9 --exclude-classes 14 15 16 \
+--lr-warmup-epochs 9 --lr-warmup-method linear --lr-warmup-start-factor 0.1 --scale-low-size 400 --scale-high-size 1600 --random-crop-size 1024 --augmode randaug_reduced --regseg_name exp48_decoder26
 ```

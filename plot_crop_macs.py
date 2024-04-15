@@ -18,16 +18,16 @@ def get_args_parser(add_help=True):
 
     return parser
 
-
 if __name__ == "__main__":
     args = get_args_parser().parse_args()
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     #device = torch.device("cpu")
 
-    train_crop_size = np.arange(224, 100, -1)
+    train_crop_size = np.arange(400, 100, -1)
     model = torchvision.models.get_model(args.model, weights=args.weights, num_classes=1000).to(device)
 
     macs = []
+    memories = []
     times = []
 
     for train_crop in train_crop_size :
@@ -40,21 +40,27 @@ if __name__ == "__main__":
         else :
             info = summary(model, input_size_train, verbose=0, col_names=("output_size", "num_params", "mult_adds"))
         macs.append(info.total_mult_adds)
-        print(input_size_train, info.total_mult_adds)
+        memories.append(info.max_memory)
+        print(input_size_train, "Total Mult Adds: ", info.total_mult_adds, "  Memory Needed for inference: ", info.max_memory)
 
-        # Warmup
-        model(test)
-        model(test)
-        model(test)
-        with profile(activities=[ProfilerActivity.CUDA], record_shapes=True) as prof:
-            with record_function("model_inference"):
-                model(test)
-        print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
-        #print(prof.key_averages())
-        #print(prof.total_average())
-        print(prof.profiler.self_cpu_time_total)
-        #print(prof.function_events.self_cpu_time_total)
+        # # Warmup
+        # model(test)
+        # model(test)
+        # model(test)
+        # with profile(activities=[ProfilerActivity.CUDA], record_shapes=True) as prof:
+        #     with record_function("model_inference"):
+        #         model(test)
+        # print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
+        # #print(prof.key_averages())
+        # #print(prof.total_average())
+        # print(prof.profiler.self_cpu_time_total)
+        # #print(prof.function_events.self_cpu_time_total)
 
+    results = []
+    results.append(macs)
+    results.append(memories)
+    torch_results = torch.tensor(results)
+    torch.save(torch_results, "results/memories_macs.pth")
     macs = np.array(macs)
     plt.plot(train_crop_size, macs/macs[0])
     plt.scatter(train_crop_size, macs/macs[0])
@@ -70,3 +76,4 @@ if __name__ == "__main__":
     plt.xlabel("input image size")
     plt.ylabel("Total MultAdds")
     plt.savefig("test_notNormalize.svg")
+    
