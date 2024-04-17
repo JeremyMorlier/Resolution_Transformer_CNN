@@ -35,7 +35,7 @@ def get_dataset(args, is_train):
         "voc": (args.data_path, voc, 21),
         "voc_aug": (args.data_path, sbd, 21),
         "coco": (args.data_path, get_coco, 21),
-        "cityscapes": (args.data_path, cityscapes, 35)
+        "cityscapes": (args.data_path, cityscapes, 19)
     }
     p, ds_fn, num_classes = paths[args.dataset]
 
@@ -67,7 +67,7 @@ def get_transform(is_train, args):
 
 def criterion(inputs, target):
     losses = {}
-    
+    print(torch.max(target*(target< 255)))
     for name, x in inputs.items():
         losses[name] = nn.functional.cross_entropy(x, target, ignore_index=255)
 

@@ -1,5 +1,4 @@
-import time
-from PIL import Image
+import os
 
 import torch
 from torch.utils.data import DataLoader, Subset
@@ -8,11 +7,6 @@ import torchvision
 import torchvision.transforms as transforms
 from torchvision.transforms import v2
 from torchvision.datasets import ImageNet
-
-import timm
-
-from pprint import pprint
-from torchinfo import summary
 
 def accuracy(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
@@ -61,29 +55,13 @@ def evaluate(model, data_loader, device):
         print("Acc5 : " , accs5.mean().item())
     return accs1.mean().item(), accs5.mean().item()
 
-# def resolution_evaluate(model, dataset, criterion, val_crop_resolutions, val_resize_resolutions, device, valdir, args) :
-
-#     all_acc1s = []
-#     all_acc5s = []
-#     for val_resize_resolution in val_resize_resolutions :
-#         acc1s = []
-#         acc5s = []
-#         for val_crop_resolution in val_crop_resolutions :
-#             dataset_test, test_sampler = load_val_data(valdir, val_crop_resolutions,val_resize_resolution,  args)
-#             data_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, sampler=test_sampler, num_workers=args.workers)
-#             acc1_epoch, acc5_epoch = evaluate(model, criterion, data_loader, device=device)
-#             print("Val crop : ",val_crop_resolution, " Val Resize : ", val_resize_resolution, " Acc1 : ", acc1_epoch," Acc5 : ", acc5_epoch)
-#             acc1s.append(acc1_epoch)
-#             acc5s.append(acc5_epoch)
-#         all_acc1s.append(acc1s)
-#         all_acc5s.append(acc5s)
-
 def get_args_parser(add_help=True):
     import argparse
 
     parser = argparse.ArgumentParser(description="PyTorch Classification Training", add_help=add_help)
 
     parser.add_argument("--dir", default="checkpoints/", type=str, help="Directory that contains the different model checkpoints")
+    parser.add_argument("--output", default="test", type=str, help="name of the output")
     parser.add_argument("--checkpoint_name", default="model_best", type=str, help="name of the selected checkpoint")
 
     parser.add_argument("--dataset_dir", default="/nasbrain/j20morli/eval_clip/imagenet/", type=str, help="Directory that contains the dataset")
@@ -149,6 +127,6 @@ if __name__ == "__main__" :
             global_results.append(local_results)
         all_results.append(global_results)
     save_tensor = torch.tensor(all_results)
-    torch.save(save_tensor, "test.pth")
+    torch.save(save_tensor, os.path.join(args.dir, args.output + ".pth"))
     
         
