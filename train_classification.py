@@ -318,7 +318,12 @@ def main(args):
     )
 
     print("Creating model")
-    model = get_model(args.model, weights=args.weights, num_classes=num_classes, first_conv_resize=args.first_conv_resize)
+    if args.model == "resnet50" :
+        model = get_model(args.model, weights=args.weights, num_classes=num_classes, first_conv_resize=args.first_conv_resize)
+    elif args.model == "vit_custom" :
+        model = get_model(args.model, weights=args.weights, num_classes=num_classes, patch_size=args.patch_size, num_layers=args.num_layers, num_heads=args.num_heads, hidden_dim=args.hidden_dim, mlp_dim=args.mlp_dim)
+    else :
+        model = get_model(args.model, weights=args.weights, num_classes=num_classes)
     model.to(device)
 
     if args.distributed and args.sync_bn:
@@ -612,7 +617,16 @@ def get_args_parser(add_help=True):
     parser.add_argument("--backend", default="PIL", type=str.lower, help="PIL or tensor - case insensitive")
     parser.add_argument("--use-v2", action="store_true", help="Use V2 transforms")
 
+    # Resnet Specific args
     parser.add_argument("--first-conv-resize",  default=0, type=int, help="Resize Value after first conv")
+
+    # ViT Specific Args
+    parser.add_argument("--patch_size",  default=16, type=int, help="ViT patch size(default to vit_b_16)")
+    parser.add_argument("--num_layers",  default=12, type=int, help="ViT number of layers (default to vit_b_16)")
+    parser.add_argument("--num_heads",  default=12, type=int, help="ViT number of Attention heads (default to vit_b_16)")
+    parser.add_argument("--hidden_dim",  default=768, type=int, help="ViT hidden dimension (default to vit_b_16)")
+    parser.add_argument("--mlp_dim",  default=3072, type=int, help="ViT hidden mlp dimension (default to vit_b_16)")
+
     return parser
 
 
