@@ -619,6 +619,7 @@ def get_args_parser(add_help=True):
 
     # Resnet Specific args
     parser.add_argument("--first-conv-resize",  default=0, type=int, help="Resize Value after first conv")
+    parser.add_argument("--channels",  nargs="+", type=int, help="channels of ResNet")
 
     # ViT Specific Args
     parser.add_argument("--patch_size",  default=16, type=int, help="ViT patch size(default to vit_b_16)")

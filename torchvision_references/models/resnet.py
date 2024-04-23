@@ -1022,4 +1022,9 @@ def resnet50_resize(*, weights: Optional[ResNet50_Weights] = None, progress: boo
     """
     weights = ResNet50_Weights.verify(weights)
 
-    return _resnet(Bottleneck, [3, 4, 6, 3], weights, progress, **kwargs)
+    if "channels" in kwargs :
+        channels = kwargs["channels"]
+    else :
+        channels = [3, 4, 6, 3]
+
+    return _resnet(Bottleneck, channels, weights, progress, **kwargs)
