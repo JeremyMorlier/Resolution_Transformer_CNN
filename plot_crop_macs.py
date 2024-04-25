@@ -7,14 +7,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 from torch.profiler import profile, record_function, ProfilerActivity
+
+from torchvision_references.models import get_model
 def get_args_parser(add_help=True):
     import argparse
 
     parser = argparse.ArgumentParser(description="PyTorch Classification Training", add_help=add_help)
 
     parser.add_argument("--model", default="resnet18", type=str, help="model name")
-
+    parser.add_argument("--sizes", nargs="+", type=int, help="min max sizes")
     parser.add_argument("--weights", default=None, type=str, help="the weights enum name to load")
+
+    # Model specific args
+    parser.add_argument("--regseg_name", default="exp48_decoder26", type=str, help="regseg model name")
+    parser.add_argument("--channels", nargs="+", type=int, help="resnet50 channels")
+    
 
     return parser
 
@@ -23,8 +30,13 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     #device = torch.device("cpu")
 
-    train_crop_size = np.arange(400, 100, -1)
-    model = torchvision.models.get_model(args.model, weights=args.weights, num_classes=1000).to(device)
+    train_crop_size = np.arange(args.sizes[1], args.sizes[0], -1)
+    if "regseg" in args.model :
+        model = get_model(args.model, weights=args.weights,regseg_name=args.regseg_name, num_classes=19).to(device)
+    elif args.model == "resnet50_resize" :
+        model = get_model(args.model, weights=args.weights, num_classes=num_classes, first_conv_resize=args.first_conv_resize)
+    else:
+        model = get_model(args.model, weights=args.weights, num_classes=1000, ).to(device)
 
     macs = []
     memories = []
@@ -35,13 +47,15 @@ if __name__ == "__main__":
         input_size_train2 = (100, 3, train_crop, train_crop)
         test = torch.rand(input_size_train2).to(device)
 
-        if train_crop in [160, 161] :
-            info = summary(model, input_size_train, col_names=("output_size", "num_params", "mult_adds"))
-        else :
+        try :
             info = summary(model, input_size_train, verbose=0, col_names=("output_size", "num_params", "mult_adds"))
-        macs.append(info.total_mult_adds)
-        memories.append(info.max_memory)
-        print(input_size_train, "Total Mult Adds: ", info.total_mult_adds, "  Memory Needed for inference: ", info.max_memory)
+            macs.append(info.total_mult_adds)
+            #memories.append(info.max_memory)
+            print(input_size_train, "Total Mult Adds: ", info.total_mult_adds)
+        except :
+            print("failed at ", input_size_train)
+            break
+        #print(input_size_train, "Total Mult Adds: ", info.total_mult_adds, "  Memory Needed for inference: ", info.max_memory)
 
         # # Warmup
         # model(test)
@@ -58,7 +72,7 @@ if __name__ == "__main__":
 
     results = []
     results.append(macs)
-    results.append(memories)
+    #results.append(memories)
     torch_results = torch.tensor(results)
     torch.save(torch_results, "results/memories_macs.pth")
     macs = np.array(macs)
@@ -68,6 +82,7 @@ if __name__ == "__main__":
     plt.xlabel("input image size")
     plt.ylabel("Total MultAdds normalized by largest")
     plt.savefig("test_Normalize.svg")
+    plt.savefig("test_Normalize.png")
     plt.close()
 
     plt.plot(train_crop_size, macs)
@@ -76,4 +91,6 @@ if __name__ == "__main__":
     plt.xlabel("input image size")
     plt.ylabel("Total MultAdds")
     plt.savefig("test_notNormalize.svg")
+    plt.savefig("test_notNormalize.png")
+
     
