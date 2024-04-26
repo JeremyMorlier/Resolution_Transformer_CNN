@@ -42,17 +42,17 @@ if __name__ == "__main__":
         macs.append(info.total_mult_adds)
         print(input_size_train, info.total_mult_adds)
 
-        # Warmup
-        model(test)
-        model(test)
-        model(test)
-        with profile(activities=[ProfilerActivity.CUDA], record_shapes=True) as prof:
-            with record_function("model_inference"):
-                model(test)
-        print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
+        # # Warmup
+        # model(test)
+        # model(test)
+        # model(test)
+        # with profile(activities=[ProfilerActivity.CUDA], record_shapes=True) as prof:
+        #     with record_function("model_inference"):
+        #         model(test)
+        # print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
         #print(prof.key_averages())
         #print(prof.total_average())
-        print(prof.profiler.self_cpu_time_total)
+        # print(prof.profiler.self_cpu_time_total)
         #print(prof.function_events.self_cpu_time_total)
 
     macs = np.array(macs)
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     plt.grid()
     plt.xlabel("input image size")
     plt.ylabel("Total MultAdds normalized by largest")
-    plt.savefig("test_Normalize.svg")
+    plt.savefig("test_Normalize.png", dpi=500)
     plt.close()
 
     plt.plot(train_crop_size, macs)
@@ -69,4 +69,4 @@ if __name__ == "__main__":
     plt.grid()
     plt.xlabel("input image size")
     plt.ylabel("Total MultAdds")
-    plt.savefig("test_notNormalize.svg")
+    plt.savefig("test_notNormalize.png", dpi=500)
