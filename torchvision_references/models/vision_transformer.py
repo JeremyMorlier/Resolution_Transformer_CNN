@@ -111,7 +111,6 @@ class EncoderBlock(nn.Module):
     def forward(self, input: torch.Tensor):
         torch._assert(input.dim() == 3, f"Expected (batch_size, seq_length, hidden_dim) got {input.shape}")
         x = self.ln_1(input)
-        print(x.size())
         x, _ = self.self_attention(x, x, x, need_weights=False)
         x = self.dropout(x)
         x = x + input
@@ -789,7 +788,7 @@ def vit_h_14(*, weights: Optional[ViT_H_14_Weights] = None, progress: bool = Tru
 
 @register_model()
 @handle_legacy_interface(weights=("pretrained", None))
-def vit_custom(*, weights: Optional[ViT_H_14_Weights] = None, progress: bool = True, **kwargs: Any) -> VisionTransformer:
+def vit_custom(*, weights: Optional[ViT_B_16_Weights] = None, progress: bool = True, **kwargs: Any) -> VisionTransformer:
     """
     Constructs a vit_h_14 architecture from
     `An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale <https://arxiv.org/abs/2010.11929>`_.
@@ -807,7 +806,7 @@ def vit_custom(*, weights: Optional[ViT_H_14_Weights] = None, progress: bool = T
     .. autoclass:: torchvision.models.ViT_H_14_Weights
         :members:
     """
-    weights = ViT_H_14_Weights.verify(weights)
+    weights = ViT_B_16_Weights.verify(weights)
 
     return _vision_transformer(
         # patch_size=14,

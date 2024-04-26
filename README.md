@@ -34,11 +34,15 @@ torchrun -m --standalone --nnodes=1 --nproc-per-node=1 train_classification.py -
 ViT
 
 ```bash
-torchrun -m --standalone --nnodes=1 --nproc-per-node=1 train_classification.py \
+torchrun -m --standalone --nnodes=1 --nproc-per-node=1 train_classification \
     --model vit_custom --epochs 300 --batch-size 512 --opt adamw --lr 0.003 --wd 0.3\
     --lr-scheduler cosineannealinglr --lr-warmup-method linear --lr-warmup-epochs 30\
     --lr-warmup-decay 0.033 --label-smoothing 0.11 --mixup-alpha 0.2 --auto-augment ra\
-    --clip-grad-norm 1 --ra-sampler --cutmix-alpha 1.0 --model-ema
+    --clip-grad-norm 1 --ra-sampler --cutmix-alpha 1.0 --model-ema \
+    --train-crop-size 224 --val-resize-size 232 --val-crop-size 224 \
+    --patch_size 16 --num_layers 12 --num_heads 12 --hidden_dim 768 --mlp_dim 3072 --img_size 224 \
+    --data-path PATH_TO_IMAGENET_DATASET
+
 ```
 
 RegSeg

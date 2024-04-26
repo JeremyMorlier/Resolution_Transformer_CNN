@@ -321,7 +321,7 @@ def main(args):
     if args.model == "resnet50_resize" :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes, first_conv_resize=args.first_conv_resize, channels=args.channels)
     elif args.model == "vit_custom" :
-        model = get_model(args.model, weights=args.weights, num_classes=num_classes, patch_size=args.patch_size, num_layers=args.num_layers, num_heads=args.num_heads, hidden_dim=args.hidden_dim, mlp_dim=args.mlp_dim)
+        model = get_model(args.model, weights=args.weights, num_classes=num_classes, patch_size=args.patch_size, num_layers=args.num_layers, num_heads=args.num_heads, hidden_dim=args.hidden_dim, mlp_dim=args.mlp_dim, image_size=args.img_size)
     else :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes)
     model.to(device)
@@ -627,6 +627,7 @@ def get_args_parser(add_help=True):
     parser.add_argument("--num_heads",  default=12, type=int, help="ViT number of Attention heads (default to vit_b_16)")
     parser.add_argument("--hidden_dim",  default=768, type=int, help="ViT hidden dimension (default to vit_b_16)")
     parser.add_argument("--mlp_dim",  default=3072, type=int, help="ViT hidden mlp dimension (default to vit_b_16)")
+    parser.add_argument("--img_size",  default=224, type=int, help="ViT img size (default to vit_b_16)")
 
     return parser
 
