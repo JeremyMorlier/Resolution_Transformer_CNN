@@ -4,6 +4,7 @@ import time
 import warnings
 
 import torchvision_references.references.segmentation.presets as presets
+import torchvision_references.references.segmentation.RegSeg.presets as RS_presets
 import torch
 import torch.utils.data
 import torchvision
@@ -40,16 +41,20 @@ def get_dataset(args, is_train):
     p, ds_fn, num_classes = paths[args.dataset]
 
     image_set = "train" if is_train else "val"
-    if args.dataset != "cityscapes" :
-        ds = ds_fn(p, image_set=image_set, transforms=get_transform(is_train, args), use_v2=args.use_v2)
+    if args.dataset == "cityscapes" :
+        ds = ds_fn(p, transforms=get_transform(is_train, args), split=image_set, mode="fine", target_type='semantic', class_uniform_pct=0.5, use_v2=args.use_v2)
     else : 
-        ds = ds_fn(p, split=image_set, mode="fine", target_type='semantic', transforms=get_transform(is_train, args), use_v2=args.use_v2)
+        ds = ds_fn(p, image_set=image_set, transforms=get_transform(is_train, args), use_v2=args.use_v2)
     return ds, num_classes
 
-
 def get_transform(is_train, args):
+    if args.dataset == "cityscapes" :
+        if is_train:
+            return RS_presets.build_train_transform2(args.scale_low_size, args.scale_high_size, args.random_crop_size, args.augmode, ignore_value=255)
+        else :
+            return RS_presets.build_val_transform(args.val_input_size, args.val_label_size)
     if is_train:
-        return presets.SegmentationPresetTrain(low_size=args.scale_low_size, high_size=args.scale_high_size, crop_size=args.random_crop_size, backend=args.backend, use_v2=args.use_v2, aug_mode=args.augmode)
+        return presets.SegmentationPresetTrain(base_size=520, crop_size=480, backend=args.backend, use_v2=args.use_v2)
     elif args.weights and args.test_only:
         weights = torchvision.models.get_weight(args.weights)
         trans = weights.transforms()
@@ -163,8 +168,8 @@ def main(args):
 
     dataset, num_classes = get_dataset(args, is_train=True)
     dataset_test, _ = get_dataset(args, is_train=False)
-    print(args.exclude_classes + dataset_test.exclude_classes)
-    args.exclude_classes += dataset_test.exclude_classes
+    #print(args.exclude_classes + dataset_test.exclude_classes)
+    #args.exclude_classes += dataset_test.exclude_classes
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(dataset)
         test_sampler = torch.utils.data.distributed.DistributedSampler(dataset_test, shuffle=False)
@@ -360,6 +365,10 @@ def get_args_parser(add_help=True):
     parser.add_argument("--scale-low-size", default=400, type=int, help="lower value of first random scaling")
     parser.add_argument("--scale-high-size", default=1600, type=int, help="upper value of first random scaling")
     parser.add_argument("--random-crop-size", default=1024, type=int, help="the random crop size used for training (default: 1024)")
+
+    parser.add_argument("--val_input_size", default=1024, type=int, help="val input size")
+    parser.add_argument("--val_label_size", default=1024, type=int, help="val label size")
+
     parser.add_argument("--augmode", default=None, type=str, help="augmentation mode")
     # RegSeg parser arguments
     parser.add_argument("--regseg_name", default="custom_decoder4", type=str, help="regseg instance name(defines encoder and decoder used)")

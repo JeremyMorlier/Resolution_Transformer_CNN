@@ -49,13 +49,8 @@ if __name__ == "__main__":
 
         try :
             info = summary(model, input_size_train, verbose=0, col_names=("output_size", "num_params", "mult_adds"))
-            macs.append(info.total_mult_adds)
-            #memories.append(info.max_memory)
-            print(input_size_train, "Total Mult Adds: ", info.total_mult_adds)
-        except :
-            print("failed at ", input_size_train)
-            break
-        #print(input_size_train, "Total Mult Adds: ", info.total_mult_adds, "  Memory Needed for inference: ", info.max_memory)
+        macs.append(info.total_mult_adds)
+        print(input_size_train, info.total_mult_adds)
 
         # # Warmup
         # model(test)
@@ -65,10 +60,10 @@ if __name__ == "__main__":
         #     with record_function("model_inference"):
         #         model(test)
         # print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
-        # #print(prof.key_averages())
-        # #print(prof.total_average())
+        #print(prof.key_averages())
+        #print(prof.total_average())
         # print(prof.profiler.self_cpu_time_total)
-        # #print(prof.function_events.self_cpu_time_total)
+        #print(prof.function_events.self_cpu_time_total)
 
     results = []
     results.append(macs)
@@ -81,8 +76,7 @@ if __name__ == "__main__":
     plt.grid()
     plt.xlabel("input image size")
     plt.ylabel("Total MultAdds normalized by largest")
-    plt.savefig("test_Normalize.svg")
-    plt.savefig("test_Normalize.png")
+    plt.savefig("test_Normalize.png", dpi=500)
     plt.close()
 
     plt.plot(train_crop_size, macs)
@@ -90,7 +84,4 @@ if __name__ == "__main__":
     plt.grid()
     plt.xlabel("input image size")
     plt.ylabel("Total MultAdds")
-    plt.savefig("test_notNormalize.svg")
-    plt.savefig("test_notNormalize.png")
-
-    
+    plt.savefig("test_notNormalize.png", dpi=500)
