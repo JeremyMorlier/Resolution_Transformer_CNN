@@ -72,7 +72,6 @@ def get_transform(is_train, args):
 
 def criterion(inputs, target):
     losses = {}
-    print(torch.max(target*(target< 255)))
     for name, x in inputs.items():
         losses[name] = nn.functional.cross_entropy(x, target, ignore_index=255)
 
