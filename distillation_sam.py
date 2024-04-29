@@ -18,8 +18,9 @@ from torchvision_references.datasets.segment_anything_dataset import transform, 
 from torch import distributed as dist
 from torch.utils.data.distributed import DistributedSampler
 
-from torchvision_references.references.distillation_sam.common import parse_option, build_model, get_optimizer, get_scheduler, customized_mseloss
-            
+from torchvision_references.references.distillation_sam.common import parse_option, get_optimizer, get_scheduler, customized_mseloss
+from torchvision_references.models import get_model
+
 def test(args, model, test_loader, local_rank):
     model.eval()
     test_loss = 0
@@ -78,7 +79,9 @@ def main(args):
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
     # model
-    model = build_model()
+    if "sam" in args.model :
+        model= get_model(args.model)
+
     model.to(device)
     model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True)

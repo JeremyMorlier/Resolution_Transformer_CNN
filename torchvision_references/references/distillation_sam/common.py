@@ -13,6 +13,8 @@ def parse_option():
     # dataset paths
     parser.add_argument('--dataset_path', type=str, default="/dataset/vyueyu/sa-1b", help='root path of dataset')
 
+    # Model settings
+    parser.add_argument("--model", type=str, default="mobileSAM_ViT", help="model that will be distilled (sam_vit_h,l,b,t mobilesam_vit or Resnet50)")
     # training epochs, batch size and so on
     parser.add_argument('--epochs', type=int, default=8, help='number of training epochs')
     parser.add_argument('--num_workers', type=int, default=4, help='num of workers to use')
@@ -52,28 +54,30 @@ def parse_option():
     args = parser.parse_args()
     return args
 
-def build_model():
-    model = TinyViT(img_size=1024, in_chans=3, num_classes=1000,
-                embed_dims=[64, 128, 160, 320],
-                depths=[2, 2, 6, 2],
-                num_heads=[2, 4, 5, 10],
-                window_sizes=[7, 7, 14, 7],
-                mlp_ratio=4.,
-                drop_rate=0.,
-                drop_path_rate=0.0,
-                use_checkpoint=False,
-                mbconv_expand_ratio=4.0,
-                local_conv_size=3,
-                layer_lr_decay=0.8
-            )
+# def build_model(model_name):
+#     if model_name == "tinyVIT" :
+#         model = TinyViT(img_size=1024, in_chans=3, num_classes=1000,
+#                     embed_dims=[64, 128, 160, 320],
+#                     depths=[2, 2, 6, 2],
+#                     num_heads=[2, 4, 5, 10],
+#                     window_sizes=[7, 7, 14, 7],
+#                     mlp_ratio=4.,
+#                     drop_rate=0.,
+#                     drop_path_rate=0.0,
+#                     use_checkpoint=False,
+#                     mbconv_expand_ratio=4.0,
+#                     local_conv_size=3,
+#                     layer_lr_decay=0.8
+#                 )
+#     else :
+#         model = 
+#     ## load pretrained TinyViT weights, please download from https://github.com/wkcn/TinyViT?tab=readme-ov-file
+#     # pretrained_weights = torch.load("path_to_pth")["model"]
+#     # del pretrained_weights["head.weight"]
+#     # del pretrained_weights["head.bias"]
+#     # model.load_state_dict(pretrained_weights, strict=False)
     
-    ## load pretrained TinyViT weights, please download from https://github.com/wkcn/TinyViT?tab=readme-ov-file
-    # pretrained_weights = torch.load("path_to_pth")["model"]
-    # del pretrained_weights["head.weight"]
-    # del pretrained_weights["head.bias"]
-    # model.load_state_dict(pretrained_weights, strict=False)
-    
-    return model
+#     return model
 
 def get_optimizer(args, model):
     if args.optim == 'adam':
