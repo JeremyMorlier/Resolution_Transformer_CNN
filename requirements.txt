@@ -1,4 +1,3 @@
-WARNING: Could not find a Python project for directory /users/local/j20morli/Resolution_Tranformer_CNN/venv1/lib/python3.10/site-packages (tried all parent directories)
 appdirs==1.4.4
 asttokens==2.4.1
 certifi==2024.2.2
