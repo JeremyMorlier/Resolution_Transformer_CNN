@@ -228,6 +228,8 @@ class ResNet(nn.Module):
         # Specific Parameter to control a resize after first convolution
         self.first_conv_resize = first_conv_resize
 
+        # Encoder
+        self.encoder = nn.Sequential(self.conv1, self.bn1, self.relu, self.layer1, self.layer2, self.layer3, self.layer4)
     def _make_layer(
         self,
         block: Type[Union[BasicBlock, Bottleneck]],

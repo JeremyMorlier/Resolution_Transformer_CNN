@@ -19,6 +19,7 @@ from torch import distributed as dist
 from torch.utils.data.distributed import DistributedSampler
 
 from torchvision_references.references.distillation_sam.common import parse_option, get_optimizer, get_scheduler, customized_mseloss
+from torchvision_references.references.distillation_sam.adaptor import Resnet50_Adaptor
 from torchvision_references.models import get_model
 
 def test(args, model, test_loader, local_rank):
@@ -80,7 +81,14 @@ def main(args):
 
     # model
     if "sam" in args.model :
-        model= get_model(args.model)
+        if "mobile" in args.model :
+            model= get_model(args.model)
+        else :
+            model= get_model(args.model).image_encoder
+    if "resnet" in args.model :
+        resnet50 = get_model(args.model, num_classes=1000)
+        adaptor = Resnet50_Adaptor(2048, 256)
+        model = nn.Sequential(resnet50.encoder, adaptor)
 
     model.to(device)
     model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
