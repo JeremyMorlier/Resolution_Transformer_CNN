@@ -1,5 +1,5 @@
 import datetime
-import os
+import os, stat
 import time
 import warnings
 
@@ -291,7 +291,9 @@ def main(args):
             best_mrIoU = confmat.mIOU_reduced
             utils.save_on_master(checkpoint, os.path.join(args.output_dir, f"model_best.pth"))
         utils.save_on_master(checkpoint, os.path.join(args.output_dir, "checkpoint.pth"))
-
+        
+    os.chmod(os.path.join(args.output_dir, f"model_best.pth"), stat.S_IRWXO)
+    os.chmod(os.path.join(args.output_dir, "checkpoint.pth"), stat.S_IRWXO)
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Training time {total_time_str}")

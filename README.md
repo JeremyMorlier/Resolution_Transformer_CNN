@@ -10,25 +10,25 @@ torchrun -m --standalone --nnodes=1 --nproc-per-node=1 train_classification.py -
 --lr-scheduler cosineannealinglr --lr-warmup-epochs 5 --lr-warmup-method linear \
 --auto-augment ta_wide --epochs 120 --random-erase 0.1 --weight-decay 0.00002 \
 --norm-weight-decay 0.0 --label-smoothing 0.1 --mixup-alpha 0.2 --cutmix-alpha 1.0 \
---train-crop-size 176 --model-ema --val-resize-size 232 --val-crop-size 224 --data-path PATH_TO_IMAGENET_DATASET
+--train-crop-size 176 --model-ema --val-resize-size 232 --val-crop-size 224 --output-dir /nasbrain/j20morli/results/ --data-path PATH_TO_IMAGENET_DATASET
 
 torchrun -m --standalone --nnodes=1 --nproc-per-node=1 train_classification.py --model resnet50 --batch-size 256 --lr 0.1 \
 --lr-scheduler cosineannealinglr --lr-warmup-epochs 5 --lr-warmup-method linear \
 --auto-augment ta_wide --epochs 120 --random-erase 0.1 --weight-decay 0.00002 \
 --norm-weight-decay 0.0 --label-smoothing 0.1 --mixup-alpha 0.2 --cutmix-alpha 1.0 \
---train-crop-size 112 --model-ema --val-resize-size 152 --val-crop-size 144 --data-path PATH_TO_IMAGENET_DATASET
+--train-crop-size 112 --model-ema --val-resize-size 152 --val-crop-size 144 --output-dir /nasbrain/j20morli/results/ --data-path PATH_TO_IMAGENET_DATASET
 
 torchrun -m --standalone --nnodes=1 --nproc-per-node=1 train_classification.py --model resnet50 --batch-size 256 --lr 0.1 \
 --lr-scheduler cosineannealinglr --lr-warmup-epochs 5 --lr-warmup-method linear \
 --auto-augment ta_wide --epochs 120 --random-erase 0.1 --weight-decay 0.00002 \
 --norm-weight-decay 0.0 --label-smoothing 0.1 --mixup-alpha 0.2 --cutmix-alpha 1.0 \
---train-crop-size 128 --model-ema --val-resize-size 168 --val-crop-size 160 --data-path PATH_TO_IMAGENET_DATASET
+--train-crop-size 128 --model-ema --val-resize-size 168 --val-crop-size 160 --output-dir /nasbrain/j20morli/results/ --data-path PATH_TO_IMAGENET_DATASET
 
 torchrun -m --standalone --nnodes=1 --nproc-per-node=1 train_classification.py --model resnet50 --batch-size 256 --lr 0.1 \
 --lr-scheduler cosineannealinglr --lr-warmup-epochs 5 --lr-warmup-method linear \
 --auto-augment ta_wide --epochs 120 --random-erase 0.1 --weight-decay 0.00002 \
 --norm-weight-decay 0.0 --label-smoothing 0.1 --mixup-alpha 0.2 --cutmix-alpha 1.0 \
---train-crop-size 176 --model-ema --val-resize-size 232 --val-crop-size 224 --first-conv-resize 76 --channels 3 4 6 3 --data-path PATH_TO_IMAGENET_DATASET
+--train-crop-size 176 --model-ema --val-resize-size 232 --val-crop-size 224 --first-conv-resize 76 --channels 3 4 6 3 --output-dir /nasbrain/j20morli/results/ --data-path PATH_TO_IMAGENET_DATASET
 
 ```
 ViT
@@ -41,12 +41,12 @@ torchrun -m --standalone --nnodes=1 --nproc-per-node=1 train_classification \
     --clip-grad-norm 1 --ra-sampler --cutmix-alpha 1.0 --model-ema \
     --train-crop-size 224 --val-resize-size 232 --val-crop-size 224 \
     --patch_size 16 --num_layers 12 --num_heads 12 --hidden_dim 768 --mlp_dim 3072 --img_size 224 \
-    --data-path PATH_TO_IMAGENET_DATASET
+    --output-dir /nasbrain/j20morli/results/ --data-path PATH_TO_IMAGENET_DATASET
 
 ```
 
 RegSeg
 ```bash
-torchrun -m --standalone --nnodes=1 --nproc-per-node=1  python3 train_semantic.py --data-path /nasbrain/datasets/cityscapes/ --lr 0.05 --dataset cityscapes -b 8 --model regseg_custom --epochs 1000 --momentum 0.9 --exclude-classes 14 15 16 \
+torchrun -m --standalone --nnodes=1 --nproc-per-node=1  python3 train_semantic.py --output-dir /nasbrain/j20morli/results/ --data-path /nasbrain/datasets/cityscapes/ --lr 0.05 --dataset cityscapes -b 8 --model regseg_custom --epochs 1000 --momentum 0.9 --exclude-classes 14 15 16 \
 --lr-warmup-epochs 9 --lr-warmup-method linear --lr-warmup-start-factor 0.1 --scale-low-size 400 --scale-high-size 1600 --random-crop-size 1024 --augmode randaug_reduced --regseg_name exp48_decoder26
 ```
