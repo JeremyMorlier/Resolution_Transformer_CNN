@@ -455,6 +455,7 @@ def main(args):
             acc1_ema, acc5_ema = evaluate(model_ema, criterion, data_loader_test, device=device, log_suffix="EMA")
             wandb.log({"ema acc1":acc1_ema, "ema acc5":acc5_ema})
         if args.output_dir:
+            print("Saving model")
             checkpoint = {
                 "model": model_without_ddp.state_dict(),
                 "optimizer": optimizer.state_dict(),
@@ -649,6 +650,8 @@ if __name__ == "__main__":
     args.output_dir = args.output_dir + "/" + name
     if not os.path.isdir(args.output_dir) :
         os.mkdir(args.output_dir)
+        os.chmod(args.output_dir, stat.S_IRWXU | stat.S_IRWXO)
+        
     wandb.init(
         # set the wandb project where this run will be logged
         project="resolution_CNN_ViT",
