@@ -47,7 +47,7 @@ def evaluate_ADE20K(args, model) :
 
     iou_liste = []
     nb_crops = 0
-    n= 5000
+    n = len(index_ade20k['folder'])
     for i in range(n) : 
         full_file_name = os.path.join(index_ade20k['folder'][i], index_ade20k['filename'][i])
         folder_name = os.path.join(ade20k_path,full_file_name.replace(".jpg", ''))
@@ -62,6 +62,8 @@ def evaluate_ADE20K(args, model) :
         predictor.set_image(image)
         input_label = np.array([1])
         n2 = len(folder_files)
+        
+        # Gather all instances in the image and compute iou on each
         for j, image_test in enumerate(folder_files) : 
             aux = cv2.imread(image_test)[:,:,0]
             label = (aux != 0)*1
@@ -262,9 +264,9 @@ def main(args):
         model.load_state_dict(torch.load(os.path.join(args.root_path, args.work_dir, args.save_dir, "iter_final.pth")))
         model.to(device)
         model.eval()
-        print("Evaluate against ViT_H", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()))
-        result = evaluate_against_sam(args, model, val_loader)
-        print("Evaluation finished: ", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()), " mIoU: ", result)
+        # print("Evaluate against ViT_H", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()))
+        # result = evaluate_against_sam(args, model, val_loader)
+        # print("Evaluation finished: ", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()), " mIoU: ", result)
 
         if args.ade_dataset != None :
             print("Evaluate on ADE20k", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()))

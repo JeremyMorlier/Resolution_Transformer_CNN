@@ -47,11 +47,16 @@ torchrun -m --standalone --nnodes=1 --nproc-per-node=1 train_classification \
 
 RegSeg
 ```bash
-torchrun -m --standalone --nnodes=1 --nproc-per-node=1  python3 train_semantic.py --output-dir /nasbrain/j20morli/results/ --data-path /nasbrain/datasets/cityscapes/ --lr 0.05 --dataset cityscapes -b 8 --model regseg_custom --epochs 1000 --momentum 0.9 --exclude-classes 14 15 16 \
---lr-warmup-epochs 9 --lr-warmup-method linear --lr-warmup-start-factor 0.1 --scale-low-size 400 --scale-high-size 1600 --random-crop-size 1024 --augmode randaug_reduced --regseg_name exp48_decoder26
+torchrun -m --standalone --nnodes=1 --nproc-per-node=1  python3 train_semantic --model regseg_custom --regseg_name exp48_decoder26 -output-dir /nasbrain/j20morli/results/ \
+--dataset cityscapes --data-path /nasbrain/datasets/cityscapes/ --scale-low-size 400 --scale-high-size 1600 --random-crop-size 1024 --augmode randaug_reduced --exclude-classes 14 15 16 \
+--epochs 1000 --momentum 0.9  --lr 0.05 -b 8\
+--lr-warmup-epochs 9 --lr-warmup-method linear --lr-warmup-start-factor 0.1 
 ```
 
 ## Segment Anything Distillation
 ```bash
-torchrun -m --standalone --nnodes=1 --nproc-per-node=1 distillation_sam --optim adamw --learning_rate 0.001 --weight_decay 0.0005 --epochs 8 --batch_size 8 --work_dir test --root_path ./ --root_feat /users2/local/j20morli_sam_dataset/SAM_vit_h_features --dataset_path /users2/local/j20morli_sam_dataset/images/ --sam_checkpoint /users/local/j20morli/data/sam_vit_h_4b8939.pth --ade_dataset /nasbrain/datasets/ADE20k_full/ --val_dirs sa_000022 --train_dirs sa_000022 sa_000024 sa_000070 sa_000135 sa_000137 sa_000138 sa_000259 sa_000477 sa_000977
+torchrun -m --standalone --nnodes=1 --nproc-per-node=1 distillation_sam --optim adamw --learning_rate 0.001 --weight_decay 0.0005 --epochs 8 --batch_size 8 --model mobilesam_vit\
+--work_dir test --root_path ./ --root_feat /users2/local/j20morli_sam_dataset/SAM_vit_h_features --dataset_path /users2/local/j20morli_sam_dataset/images/ \
+--ade_dataset /nasbrain/datasets/ADE20k_full/ --sam_checkpoint /users/local/j20morli/data/sam_vit_h_4b8939.pth \
+--val_dirs sa_000022 --train_dirs sa_000022 sa_000024 sa_000070 sa_000135 sa_000137 sa_000138 sa_000259 sa_000477 sa_000977
 ```
