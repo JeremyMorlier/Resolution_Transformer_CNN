@@ -12,19 +12,23 @@ from torch.utils.data.distributed import DistributedSampler
 from mobile_sam.utils.transforms import ResizeLongestSide
 
 class sa1b_dataset(Dataset):
-    def __init__(self, root_path, feat_root, img_dirs, transformer, max_num = None):
+    def __init__(self, root_path, img_dirs, transformer=None, feat_root=None, max_num = None):
         self.root_path = root_path
         self.img_dirs = img_dirs
         self.transformer = transformer
         self.max_num = max_num
         self.img_paths = []
         self.feat_paths = []
+        self.feat_root = feat_root
+
+        # Initialize all paths (images and features)
         for i, img_dir in enumerate(img_dirs):
             img_names = os.listdir(os.path.join(root_path, img_dir))
             self.img_paths += [os.path.join(root_path, img_dir, img_name) for img_name in img_names if ".jpg" in img_name]
 
-            feat_names = os.listdir(os.path.join(feat_root, img_dir))
-            self.feat_paths += [os.path.join(feat_root, img_dir, feat_name) for feat_name in feat_names if ".npy" in feat_name]
+            if self.feat_root != None :
+                feat_names = os.listdir(os.path.join(feat_root, img_dir))
+                self.feat_paths += [os.path.join(feat_root, img_dir, feat_name) for feat_name in feat_names if ".npy" in feat_name]
     
     def __len__(self):
         if not self.max_num:
@@ -38,8 +42,11 @@ class sa1b_dataset(Dataset):
 
         if self.transformer:
             img = self.transformer(img)
-
-        feat = np.load(self.feat_paths[index])
+        
+        if self.feat_root != None :
+            feat = np.load(self.feat_paths[index])
+        else :
+            feat = 0
 
         return img, feat, self.img_paths[index].replace("images/", "annotations/").replace(".jpg", ".json")
     

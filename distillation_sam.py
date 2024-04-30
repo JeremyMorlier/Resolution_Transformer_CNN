@@ -1,4 +1,4 @@
-import os
+import os, sys
 import numpy as np
 import argparse
 import random
@@ -13,14 +13,123 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 import torch.backends.cudnn as cudnn 
 
-from torchvision_references.datasets.segment_anything_dataset import transform, sa1b_dataset, normal_distribution_dataset
 
 from torch import distributed as dist
 from torch.utils.data.distributed import DistributedSampler
 
-from torchvision_references.references.distillation_sam.common import parse_option, get_optimizer, get_scheduler, customized_mseloss
+from torchvision_references.references.distillation_sam.common import parse_option, get_optimizer, get_scheduler, customized_mseloss, calculate_iou, find_center
+from torchvision_references.datasets.segment_anything_dataset import transform, sa1b_dataset, normal_distribution_dataset
 from torchvision_references.references.distillation_sam.adaptor import Resnet50_Adaptor
 from torchvision_references.models import get_model
+
+# Libraries for ADE20k evaluation
+import pickle as pkl
+import torchvision_references.references.distillation_sam.utils_ade20k as utils_ade20k
+import glob
+from mobile_sam import SamPredictor
+
+def evaluate_ADE20K(args, model) :
+
+    # Paths
+    ade20k_path = args.ade_dataset
+    index_file = 'ADE20K_2021_17_01/index_ade20k.pkl'
+
+    device = torch.device('cuda:0')
+
+    # Load index file
+    with open(os.path.join(ade20k_path, index_file), 'rb') as f:
+        index_ade20k = pkl.load(f)
+
+    # Get original model and retrieve decoder
+    sam = get_model("sam_vit_h", checkpoint = args.sam_checkpoint)
+    sam.image_encoder = model
+    sam.to(device=device)
+
+    iou_liste = []
+    nb_crops = 0
+    n= 5000
+    for i in range(n) : 
+        full_file_name = os.path.join(index_ade20k['folder'][i], index_ade20k['filename'][i])
+        folder_name = os.path.join(ade20k_path,full_file_name.replace(".jpg", ''))
+        folder_files = glob.glob(f"{folder_name}/*")
+
+        info = utils_ade20k.loadAde20K(os.path.join(ade20k_path, full_file_name))
+        image = cv2.imread(info['img_name'])[:,:,::-1]
+
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        predictor = SamPredictor(sam)
+        predictor.set_image(image)
+        input_label = np.array([1])
+        n2 = len(folder_files)
+        for j, image_test in enumerate(folder_files) : 
+            aux = cv2.imread(image_test)[:,:,0]
+            label = (aux != 0)*1
+            center_point, valid_mask = find_center(aux)
+
+            if valid_mask : 
+                mask, _, _ = predictor.predict(
+                point_coords=center_point,
+                point_labels=input_label,
+                multimask_output=False,
+                )
+                iou = calculate_iou(mask*1,label*1)
+                iou_liste.append(iou)
+                sys.stdout.write(f'\r {time.strftime("%H:%M:%S", time.gmtime())} : {i} / {n}, {j} / {n2}   IoU: {iou}')
+                nb_crops += 1
+                
+    mean = np.mean(iou_liste)
+    print(mean)
+    return mean
+
+def evaluate_against_sam(args, model, val_loader) :
+    device = torch.device('cuda:0')
+
+    # Get original model
+    sam = get_model("sam_vit_h", checkpoint = args.sam_checkpoint)
+    sam.to(device=device)
+    predictor = SamPredictor(sam)
+
+    # Get original model and change encoder
+    sam2 = get_model("sam_vit_h", checkpoint = args.sam_checkpoint)
+    sam2.image_encoder = model
+    sam2.to(device=device)
+    predictor2 = SamPredictor(sam2)
+
+    iou_liste = []
+    n = len(val_loader)
+    for batch_idx, (image, target, mask_path) in enumerate(val_loader) :
+        # Retrieve input point and label for SAM Dataset
+        mask = open(mask_path[0])
+        label = json.load(mask)
+        index = random.randint(0,len(label['annotations'])-1)
+        input_point = np.array(label['annotations'][index]['point_coords'])
+        input_label = np.array([1])
+        
+        # Image is expected in numpy format
+        image = image[0].numpy()
+        # Set the image for both predictors
+        predictor.set_image(image)
+        predictor2.set_image(image)
+
+        # Predict masks
+        mask, _, _ = predictor.predict(
+            point_coords=input_point,
+            point_labels=input_label,
+            multimask_output=False,
+        )
+        mask_neighbor, _, _ = predictor2.predict(
+            point_coords=input_point,
+            point_labels=input_label,
+            multimask_output=False,
+        )
+        iou = calculate_iou(mask*1,mask_neighbor*1)
+        sys.stdout.write(f'\r {time.strftime("%H:%M:%S", time.gmtime())} : {batch_idx} / {n}   IoU: {iou}')
+        iou_liste.append(iou)
+
+    mean = np.mean(iou_liste)
+    print(mean)
+    return mean
 
 def test(args, model, test_loader, local_rank):
     model.eval()
@@ -38,7 +147,20 @@ def reduce_mean(tensor, nprocs):
     dist.all_reduce(rt, op=dist.ReduceOp.SUM)
     rt /= nprocs
     return rt
+
+def get_param_model(args) :
+    if "sam" in args.model :
+        if "mobile" in args.model :
+            model= get_model(args.model)
+        else :
+            model= get_model(args.model).image_encoder
+    if "resnet" in args.model :
+        resnet50 = get_model(args.model, num_classes=1000)
+        adaptor = Resnet50_Adaptor(2048, 256)
+        model = nn.Sequential(resnet50.encoder, adaptor)
     
+    return model
+
 def main(args):
 
     local_rank = int(os.environ["LOCAL_RANK"])
@@ -66,30 +188,20 @@ def main(args):
         cudnn.benchmark = args.benchmark
     
     # dataset
-    #train_dirs = ["sa_" + str(i).zfill(6) for i in range(20)]*
     train_dirs = args.train_dirs
-    #train_dirs = ["sa_000022"]
-    val_dirs = ['sa_000022']
-    train_dataset = sa1b_dataset(args.dataset_path, args.root_feat, train_dirs, transform)
-    #train_dataset = normal_distribution_dataset(train_dirs, transform)
-    val_dataset = sa1b_dataset(args.dataset_path, args.root_feat, val_dirs, transform, args.eval_nums)
+    val_dirs = args.val_dirs
+
+    train_dataset = sa1b_dataset(args.dataset_path, train_dirs, transform, feat_root=args.root_feat)
+    val_dataset = sa1b_dataset(args.dataset_path, val_dirs)
+
     # training sampler
     train_sampler = DistributedSampler(train_dataset)
     # data loader
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size // dist.get_world_size(), shuffle=(train_sampler is None), num_workers=args.num_workers, sampler=train_sampler, drop_last=True)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
+    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=args.num_workers)
 
     # model
-    if "sam" in args.model :
-        if "mobile" in args.model :
-            model= get_model(args.model)
-        else :
-            model= get_model(args.model).image_encoder
-    if "resnet" in args.model :
-        resnet50 = get_model(args.model, num_classes=1000)
-        adaptor = Resnet50_Adaptor(2048, 256)
-        model = nn.Sequential(resnet50.encoder, adaptor)
-
+    model = get_param_model(args)
     model.to(device)
     model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True)
@@ -137,21 +249,27 @@ def main(args):
                     print("save model to {}".format(save_path))
                     torch.save(model.state_dict(), save_path)
 
-                # evaluation
-                '''
-                if total_iters % args.eval_iters == 0:
-                    test_loss = test(args, model, val_loader)
-                    print('\nTest set: Average loss: {:.4f}\n'.format(test_loss))
-                    writer.add_scalar("eval_mse_loss", test_loss, total_iters)
-                '''
-
         dist.barrier()
         scheduler.step()
 
-    # save final model
     if local_rank == 0:
-        torch.save(model.state_dict(), os.path.join(args.root_path, args.work_dir, args.save_dir, "iter_final.pth"))
-        #writer.close()
+        # save final model
+        torch.save(model.module.state_dict(), os.path.join(args.root_path, args.work_dir, args.save_dir, "iter_final.pth"))
+
+        # Evaluate
+        model = get_param_model(args)
+        
+        model.load_state_dict(torch.load(os.path.join(args.root_path, args.work_dir, args.save_dir, "iter_final.pth")))
+        model.to(device)
+        model.eval()
+        print("Evaluate against ViT_H", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()))
+        result = evaluate_against_sam(args, model, val_loader)
+        print("Evaluation finished: ", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()), " mIoU: ", result)
+
+        if args.ade_dataset != None :
+            print("Evaluate on ADE20k", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()))
+            result = evaluate_ADE20K(args, model)
+            print("Evaluation on ADE20k finished: ", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()), " mIoU: ", result)  
         
         training_time = time.time() - init_time
         print("Training finished ! Training Time: ", training_time)

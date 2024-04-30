@@ -13,20 +13,20 @@ __all__ = [
 ]
 
 @register_model()
-def sam_vit_h() :
-    return sam_model_registry["build_sam_vit_h"]()
+def sam_vit_h(checkpoint = None) :
+    return sam_model_registry["vit_h"](checkpoint = checkpoint)
 
 @register_model()
-def sam_vit_l() :
-    return sam_model_registry["build_sam_vit_l"]()
+def sam_vit_l(checkpoint = None) :
+    return sam_model_registry["vit_l"](checkpoint = checkpoint)
 
 @register_model()
-def sam_vit_b() :
-    return sam_model_registry["build_sam_vit_b"]()
+def sam_vit_b(checkpoint = None) :
+    return sam_model_registry["vit_b"](checkpoint = checkpoint)
 
 @register_model()
-def sam_vit_t() :
-    return sam_model_registry["build_sam_vit_t"]()
+def sam_vit_t(checkpoint = None) :
+    return sam_model_registry["vit_t"](checkpoint = checkpoint)
 
 @register_model()
 def mobilesam_vit():
