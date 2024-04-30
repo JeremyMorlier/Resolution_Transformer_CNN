@@ -24,7 +24,6 @@ def parse_option():
     parser.add_argument('--epochs', type=int, default=8, help='number of training epochs')
     parser.add_argument('--num_workers', type=int, default=4, help='num of workers to use')
     parser.add_argument('--batch_size', type=int, default=8, help='batch_size')
-
     # multi gpu settings
     parser.add_argument("--local_rank", type=int, default=-1)
 

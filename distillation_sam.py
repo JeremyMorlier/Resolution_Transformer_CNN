@@ -5,6 +5,7 @@ import random
 import cv2
 import json
 import time
+import wandb
 
 import torch
 import torch.nn as nn
@@ -12,7 +13,6 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 import torch.backends.cudnn as cudnn 
-
 
 from torch import distributed as dist
 from torch.utils.data.distributed import DistributedSampler
@@ -243,6 +243,7 @@ def main(args):
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tMSE Loss: {:.6f}'.format(
                         epoch, batch_idx * len(imgs) * dist.get_world_size(), len(train_loader.dataset),
                             100. * batch_idx / len(train_loader), loss.item()))
+                    wandb.log({"mse_loss":loss.item()})
                     # writer.add_scalar("mse_loss", loss.item(), total_iters)
                 
                 # save model
@@ -264,18 +265,32 @@ def main(args):
         model.load_state_dict(torch.load(os.path.join(args.root_path, args.work_dir, args.save_dir, "iter_final.pth")))
         model.to(device)
         model.eval()
-        # print("Evaluate against ViT_H", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()))
-        # result = evaluate_against_sam(args, model, val_loader)
-        # print("Evaluation finished: ", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()), " mIoU: ", result)
+        print("Evaluate against ViT_H", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()))
+        result = evaluate_against_sam(args, model, val_loader)
+        print("Evaluation finished: ", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()), " mIoU: ", result)
+        wandb.log({"ViT_H_mIoU":result})
 
         if args.ade_dataset != None :
             print("Evaluate on ADE20k", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()))
             result = evaluate_ADE20K(args, model)
-            print("Evaluation on ADE20k finished: ", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()), " mIoU: ", result)  
+            print("Evaluation on ADE20k finished: ", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()), " mIoU: ", result) 
+            wandb.log({"ADE20K_mIoU":result})
         
         training_time = time.time() - init_time
         print("Training finished ! Training Time: ", training_time)
+        wandb.log({"training_time":training_time})
     
 if __name__ == "__main__":
     args = parse_option()
+    name = str(args.model) + "_" + str(args.lr) + str(args.batch_size) + "_" + str(args.epochs) + "_" + str(args.optim) +  "_" + str(args.learning_rate) +  "_" + str(args.weight_decay) + "_" + str(args.momentum)
+    wandb.init(
+    # set the wandb project where this run will be logged
+    project="Data_Distillation",
+    name=name,
+    tags=["SAM"],
+    
+    # track hyperparameters and run metadata
+    config=args
+    )
     main(args)
+    wandb.finish()
