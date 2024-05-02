@@ -20,6 +20,16 @@ from torchvision_references.models import get_model
 
 import wandb
 
+def get_param_model(args, num_classes) :
+    if args.model == "resnet50_resize" :
+        model = get_model(args.model, weights=args.weights, num_classes=num_classes, first_conv_resize=args.first_conv_resize, channels=args.channels)
+    elif args.model == "vit_custom" :
+        model = get_model(args.model, weights=args.weights, num_classes=num_classes, patch_size=args.patch_size, num_layers=args.num_layers, num_heads=args.num_heads, hidden_dim=args.hidden_dim, mlp_dim=args.mlp_dim, image_size=args.img_size)
+    else :
+        model = get_model(args.model, weights=args.weights, num_classes=num_classes)
+    
+    return model
+
 def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args, model_ema=None, scaler=None):
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -110,22 +120,42 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix="
     print(f"{header} Acc@1 {metric_logger.acc1.global_avg:.3f} Acc@5 {metric_logger.acc5.global_avg:.3f}")
     return metric_logger.acc1.global_avg, metric_logger.acc5.global_avg
 
-def resolution_evaluate(model, dataset, criterion, val_crop_resolutions, val_resize_resolutions, device, valdir, args) :
+def resolution_evaluate(model_state_dict, criterion, device, num_classes, args) :
+    print(args)
+    from torchvision.transforms import v2
+    from torchvision.datasets import ImageNet
+    from torch.utils.data import DataLoader
 
-    all_acc1s = []
-    all_acc5s = []
-    for val_resize_resolution in val_resize_resolutions :
-        acc1s = []
-        acc5s = []
-        for val_crop_resolution in val_crop_resolutions :
-            dataset_test, test_sampler = load_val_data(valdir, val_crop_resolutions,val_resize_resolution,  args)
-            data_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, sampler=test_sampler, num_workers=args.workers)
-            acc1_epoch, acc5_epoch = evaluate(model, criterion, data_loader, device=device)
-            print("Val crop : ",val_crop_resolution, " Val Resize : ", val_resize_resolution, " Acc1 : ", acc1_epoch," Acc5 : ", acc5_epoch)
-            acc1s.append(acc1_epoch)
-            acc5s.append(acc5_epoch)
-        all_acc1s.append(acc1s)
-        all_acc5s.append(acc5s)
+    val_crop_resolutions = [112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304, 320, 336, 352]
+    val_resize_resolutions = [120, 136, 152, 168, 184, 200, 216, 232, 248, 264, 280, 296, 312, 328, 344, 360]
+
+    all_results = []
+    for val_crop_resolution in val_crop_resolutions :
+        global_results = []
+        for val_resize_resolution in val_resize_resolutions :
+            print("Dataset loading :", val_crop_resolution, val_resize_resolution)
+
+            # Load Dataset 
+            val_transform = v2.Compose([v2.ToImage(), v2.Resize(val_resize_resolution), v2.CenterCrop(val_crop_resolution), v2.ToDtype(torch.float32, scale=True), v2.Normalize(mean = torch.tensor([0.485, 0.456, 0.406]), std = torch.tensor([0.229, 0.224, 0.225]))])
+            val = ImageNet(root=args.data_path, split="val", transform=val_transform)
+            val_loader =  DataLoader(val, 128, shuffle=True, num_workers=6)
+
+            print("Dataset loaded")
+
+            # In evaluation, set training architecture modifications to 0
+            args.first_conv_resize = 0
+            model = get_param_model(args, num_classes=num_classes)
+            model.to(device)
+            model.load_state_dict(torch.load(model_state_dict)["model"])
+
+            # Evaluate on all models
+            results = evaluate(model, criterion, val_loader, device)
+            
+            global_results.append(results)
+        all_results.append(global_results)
+    save_tensor = torch.tensor(all_results)
+    torch.save(save_tensor, os.path.join(args.output_dir, "resolution.pth"))
+    os.chmod(os.path.join(args.output_dir, "resolution.pth"), stat.S_IRWXU | stat.S_IRWXO)
 
 def _get_cache_path(filepath):
     import hashlib
@@ -316,14 +346,9 @@ def main(args):
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test, batch_size=args.batch_size, sampler=test_sampler, num_workers=args.workers, pin_memory=True
     )
-
+    num_classes=1000
     print("Creating model")
-    if args.model == "resnet50_resize" :
-        model = get_model(args.model, weights=args.weights, num_classes=num_classes, first_conv_resize=args.first_conv_resize, channels=args.channels)
-    elif args.model == "vit_custom" :
-        model = get_model(args.model, weights=args.weights, num_classes=num_classes, patch_size=args.patch_size, num_layers=args.num_layers, num_heads=args.num_heads, hidden_dim=args.hidden_dim, mlp_dim=args.mlp_dim, image_size=args.img_size)
-    else :
-        model = get_model(args.model, weights=args.weights, num_classes=num_classes)
+    model = get_param_model(args, num_classes=num_classes)
     model.to(device)
 
     if args.distributed and args.sync_bn:
@@ -473,19 +498,23 @@ def main(args):
                 best_acc1 = acc1_epoch
                 utils.save_on_master(checkpoint, os.path.join(args.output_dir, f"model_best.pth"))
             utils.save_on_master(checkpoint, os.path.join(args.output_dir, "checkpoint.pth"))
+    checkpoint = {"model": model_without_ddp.state_dict()}
+    
+    utils.save_on_master(checkpoint, os.path.join(args.output_dir, "checkpoint.pth"))
+    utils.save_on_master(checkpoint, os.path.join(args.output_dir, "model_best.pth"))
     os.chmod(os.path.join(args.output_dir, f"model_best.pth"),stat.S_IRWXU | stat.S_IRWXO)
     os.chmod(os.path.join(args.output_dir, "checkpoint.pth"), stat.S_IRWXU | stat.S_IRWXO)
 
-    # Last model evaluation
-    # TODO : it should be better to evaluate on best available model
-    # val_crop_resolutions = [112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304, 320, 336, 352]
-    # val_resize_resolutions = [112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304, 320, 336, 352]
-    # print("test")
-    # results = resolution_evaluate(model, dataset, criterion, val_crop_resolutions, val_resize_resolutions, device, valdir, args)
-
-    total_time = time.time() - start_time
+    training_time = time.time()
+    total_time = training_time - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Training time {total_time_str}")
+    # Last model evaluation
+    resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), criterion, device, num_classes, args)
+
+    total_time = time.time() - training_time
+    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    print(f"Evaluation time {total_time_str}")
 
 
 

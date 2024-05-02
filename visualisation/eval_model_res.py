@@ -93,7 +93,7 @@ if __name__ == "__main__" :
     args = get_args_parser().parse_args()
 
     val_crop_resolutions = [112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304, 320, 336, 352]
-    val_resize_resolutions = [112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304, 320, 336, 352]
+    val_resize_resolutions = [120, 136, 152, 168, 184, 200, 216, 232, 248, 264, 280, 296, 312, 328, 344, 360]
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
