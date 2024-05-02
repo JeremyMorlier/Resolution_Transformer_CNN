@@ -997,7 +997,7 @@ def wide_resnet101_2(
 
 @register_model()
 @handle_legacy_interface(weights=("pretrained", ResNet50_Weights.IMAGENET1K_V1))
-def resnet50_resize(*, weights: Optional[ResNet50_Weights] = None, progress: bool = True, **kwargs: Any) -> ResNet:
+def resnet50_resize(*, weights: Optional[ResNet50_Weights] = None, progress: bool = True, channels=None, **kwargs: Any) -> ResNet:
     """ResNet-50 from `Deep Residual Learning for Image Recognition <https://arxiv.org/abs/1512.03385>`__.
 
     .. note::
@@ -1024,8 +1024,8 @@ def resnet50_resize(*, weights: Optional[ResNet50_Weights] = None, progress: boo
     """
     weights = ResNet50_Weights.verify(weights)
 
-    if "channels" in kwargs :
-        channels = kwargs["channels"]
+    if channels != None :
+        channels = channels
     else :
         channels = [3, 4, 6, 3]
 
