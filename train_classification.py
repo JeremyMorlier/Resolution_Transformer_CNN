@@ -346,7 +346,7 @@ def main(args):
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test, batch_size=args.batch_size, sampler=test_sampler, num_workers=args.workers, pin_memory=True
     )
-    num_classes=1000
+    print(num_classes)
     print("Creating model")
     model = get_param_model(args, num_classes=num_classes)
     model.to(device)
