@@ -283,7 +283,6 @@ def main(args):
 if __name__ == "__main__":
     args = parse_option()
     name = str(args.model) + "_" + str(args.learning_rate) + str(args.batch_size) + "_" + str(args.epochs) + "_" + str(args.optim) +  "_" + str(args.learning_rate) +  "_" + str(args.weight_decay) + "_" + str(args.momentum)
-    wandb.login(key="1617a1f615348feeaa467541b02351193fea0def")
     wandb.init(
     # set the wandb project where this run will be logged
     project="Data_Distillation",
