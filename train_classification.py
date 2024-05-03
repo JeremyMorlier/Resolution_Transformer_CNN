@@ -679,7 +679,7 @@ if __name__ == "__main__":
     args.output_dir = args.output_dir + "/" + name
     if not os.path.isdir(args.output_dir) :
         os.mkdir(args.output_dir)
-        os.chmod(args.output_dir, stat.S_IRWXU | stat.S_IRWXO)
+    os.chmod(args.output_dir, stat.S_IRWXU | stat.S_IRWXO)
         
     wandb.init(
         # set the wandb project where this run will be logged
