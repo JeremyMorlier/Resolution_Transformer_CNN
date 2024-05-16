@@ -175,7 +175,8 @@ class ResNet(nn.Module):
         width_per_group: int = 64,
         replace_stride_with_dilation: Optional[List[bool]] = None,
         norm_layer: Optional[Callable[..., nn.Module]] = None,
-        first_conv_resize: int = 0
+        first_conv_resize: int = 0,
+        channels: List[int] = [64, 128, 256, 512]
     ) -> None:
         super().__init__()
         _log_api_usage_once(self)
@@ -200,12 +201,12 @@ class ResNet(nn.Module):
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0])
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2, dilate=replace_stride_with_dilation[0])
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=2, dilate=replace_stride_with_dilation[1])
-        self.layer4 = self._make_layer(block, 512, layers[3], stride=2, dilate=replace_stride_with_dilation[2])
+        self.layer1 = self._make_layer(block, channels[0], layers[0])
+        self.layer2 = self._make_layer(block, channels[1], layers[1], stride=2, dilate=replace_stride_with_dilation[0])
+        self.layer3 = self._make_layer(block, channels[2], layers[2], stride=2, dilate=replace_stride_with_dilation[1])
+        self.layer4 = self._make_layer(block, channels[3], layers[3], stride=2, dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.fc = nn.Linear(channels[3] * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -997,7 +998,7 @@ def wide_resnet101_2(
 
 @register_model()
 @handle_legacy_interface(weights=("pretrained", ResNet50_Weights.IMAGENET1K_V1))
-def resnet50_resize(*, weights: Optional[ResNet50_Weights] = None, progress: bool = True, channels=None, **kwargs: Any) -> ResNet:
+def resnet50_resize(*, weights: Optional[ResNet50_Weights] = None, progress: bool = True, depths=None, channels=None, **kwargs: Any) -> ResNet:
     """ResNet-50 from `Deep Residual Learning for Image Recognition <https://arxiv.org/abs/1512.03385>`__.
 
     .. note::
@@ -1024,9 +1025,16 @@ def resnet50_resize(*, weights: Optional[ResNet50_Weights] = None, progress: boo
     """
     weights = ResNet50_Weights.verify(weights)
 
+    # Depth scaling
+    if depths != None :
+        depths = depths
+    else :
+        depths = [3, 4, 6, 3]
+
+    # Channel scaling
     if channels != None :
         channels = channels
     else :
-        channels = [3, 4, 6, 3]
+        channels = [64, 128, 256, 512]
 
-    return _resnet(Bottleneck, channels, weights, progress, **kwargs)
+    return _resnet(Bottleneck, depths, weights, progress, channels=channels, **kwargs)

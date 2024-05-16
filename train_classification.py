@@ -22,7 +22,7 @@ import wandb
 
 def get_param_model(args, num_classes) :
     if args.model == "resnet50_resize" :
-        model = get_model(args.model, weights=args.weights, num_classes=num_classes, first_conv_resize=args.first_conv_resize, channels=args.channels)
+        model = get_model(args.model, weights=args.weights, num_classes=num_classes, first_conv_resize=args.first_conv_resize, channels=args.channels, depths=args.depths)
     elif args.model == "vit_custom" :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes, patch_size=args.patch_size, num_layers=args.num_layers, num_heads=args.num_heads, hidden_dim=args.hidden_dim, mlp_dim=args.mlp_dim, image_size=args.img_size)
     else :
@@ -651,7 +651,8 @@ def get_args_parser(add_help=True):
 
     # Resnet Specific args
     parser.add_argument("--first-conv-resize",  default=0, type=int, help="Resize Value after first conv")
-    parser.add_argument("--channels",  nargs="+", type=int, help="channels of ResNet")
+    parser.add_argument("--channels",default=None,  nargs="+", type=int, help="channels of ResNet")
+    parser.add_argument("--depths", default=None, nargs="+", type=int, help="layers depths of ResNet")
 
     # ViT Specific Args
     parser.add_argument("--patch_size",  default=16, type=int, help="ViT patch size(default to vit_b_16)")
@@ -675,7 +676,7 @@ if __name__ == "__main__":
     #     args.val_resize_size = int(val_size)
     #     args.val_crop_size = int(val_crop)
     #     args.train_crop_size = int(train_crop)
-    name = "test_" + str(args.train_crop_size) + "_" + str(args.val_crop_size)  + "_" + str(args.val_resize_size) + "_" + str(args.first_conv_resize)
+    name = args.model + "_" + str(args.train_crop_size) + "_" + str(args.val_crop_size)  + "_" + str(args.val_resize_size) + "_" + str(args.first_conv_resize)
     args.output_dir = args.output_dir + "/" + name
     if not os.path.isdir(args.output_dir) :
         os.mkdir(args.output_dir)
@@ -685,7 +686,7 @@ if __name__ == "__main__":
         # set the wandb project where this run will be logged
         project="resolution_CNN_ViT",
         name=name,
-        tags=["first_test", "Resnet50", "torchvision_reference", "train_crop_" + str(args.train_crop_size), "val_crop_" + str(args.val_crop_size)],
+        tags=[args.model , "torchvision_reference", "train_crop_" + str(args.train_crop_size), "val_crop_" + str(args.val_crop_size)],
         
         # track hyperparameters and run metadata
         config=args
