@@ -4,6 +4,7 @@ import numpy as np
 
 import torch
 import math
+import tikzplotlib as tkplot
 
 def score(metric1, metric2) :
     return metric1 + metric2
@@ -58,6 +59,7 @@ if __name__=="__main__" :
         
         plt.title("Resize Resolution on model " + models[k] + " Experiment")
 
+    tkplot.save("model.tex")
     plt.savefig("model.png")
     plt.close()
 
@@ -85,6 +87,7 @@ if __name__=="__main__" :
     # locs, labels = plt.xticks()
     # plt.xticks(locs, val_crop_resolutions)
     plt.savefig("memory_macs3.png", dpi=500)
+    tkplot.save("memory_macs3.tex")
     plt.close()
     
     plt.figure(1, figsize=(30, 10))
@@ -104,4 +107,5 @@ if __name__=="__main__" :
     plt.title("ImageNetAcc1/FlopsMemory tradeoff")
 
     plt.savefig("memory_macs2.png")
+    tkplot.save("memory_macs2.tex")
     plt.close()

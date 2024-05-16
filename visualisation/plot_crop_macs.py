@@ -34,9 +34,9 @@ if __name__ == "__main__":
     if "regseg" in args.model :
         model = get_model(args.model, weights=args.weights,regseg_name=args.regseg_name, num_classes=19).to(device)
     elif args.model == "resnet50_resize" :
-        model = get_model(args.model, weights=args.weights, num_classes=num_classes, first_conv_resize=args.first_conv_resize)
+        model = get_model(args.model, weights=args.weights, num_classes=1000, first_conv_resize=args.first_conv_resize)
     else:
-        model = get_model(args.model, weights=args.weights, num_classes=1000, ).to(device)
+        model = get_model(args.model, weights=args.weights, num_classes=1000).to(device)
 
     macs = []
     memories = []
@@ -47,8 +47,7 @@ if __name__ == "__main__":
         input_size_train2 = (100, 3, train_crop, train_crop)
         test = torch.rand(input_size_train2).to(device)
 
-        try :
-            info = summary(model, input_size_train, verbose=0, col_names=("output_size", "num_params", "mult_adds"))
+        info = summary(model, input_size_train, verbose=0, col_names=("output_size", "num_params", "mult_adds"))
         macs.append(info.total_mult_adds)
         print(input_size_train, info.total_mult_adds)
 
