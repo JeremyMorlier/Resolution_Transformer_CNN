@@ -130,7 +130,7 @@ def evaluate_against_sam(args, model, val_loader) :
         iou_liste.append(iou)
 
     mean = np.mean(iou_liste)
-    print(mean)
+    print("\n ", mean)
     return mean
 
 def test(args, model, test_loader, local_rank):
