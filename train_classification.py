@@ -687,6 +687,7 @@ if __name__ == "__main__":
         project="resolution_CNN_ViT",
         name=name,
         tags=[args.model , "torchvision_reference", "train_crop_" + str(args.train_crop_size), "val_crop_" + str(args.val_crop_size)],
+        mode="offline",
         
         # track hyperparameters and run metadata
         config=args
