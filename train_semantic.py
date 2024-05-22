@@ -69,6 +69,18 @@ def get_transform(is_train, args):
     else:
         return presets.SegmentationPresetEval(base_size=520, backend=args.backend, use_v2=args.use_v2)
 
+def get_param_model(args, num_classes) :
+    if args.model == "resnet50_resize" :
+        model = get_model(args.model, weights=args.weights, num_classes=num_classes, first_conv_resize=args.first_conv_resize, channels=args.channels, depths=args.depths)
+    elif args.model == "vit_custom" :
+        model = get_model(args.model, weights=args.weights, num_classes=num_classes, patch_size=args.patch_size, num_layers=args.num_layers, num_heads=args.num_heads, hidden_dim=args.hidden_dim, mlp_dim=args.mlp_dim, image_size=args.img_size)
+    elif args.model == "regseg_custom" :
+        model = get_model(args.model, weights=args.weights, weights_backbone=args.weights_backbone, num_classes=num_classes, aux_loss=args.aux_loss, regseg_name=args.regseg_name
+    )
+    else :
+        model = get_model(args.model, weights=args.weights, num_classes=num_classes)
+    
+    return model
 
 def criterion(inputs, target):
     losses = {}
@@ -116,6 +128,49 @@ def evaluate(model, data_loader, device, num_classes, exclude_classes):
 
     return confmat
 
+# Evaluate the trained model at different resolution
+def resolution_evaluate(model_state_dict, device, num_classes, args) :
+
+    val_resize_resolutions = [128, 256, 384, 512, 640, 768, 896, 1024, 1280, 1536]
+
+    all_results = []
+
+    # In evaluation, set training architecture modifications to 0
+    model = get_param_model(args, num_classes=num_classes)
+    model.load_state_dict(torch.load(model_state_dict)["model"])
+    model.to(device)
+
+    for val_resize_resolution in val_resize_resolutions :
+        print("Dataset loading :", val_resize_resolution)
+
+        # Load Dataset with desired validation resolution
+        args.val_input_size, args.val_label_size = val_resize_resolution, val_resize_resolution
+        dataset_test, _ = get_dataset(args, is_train=False)
+        if args.distributed:
+            test_sampler = torch.utils.data.distributed.DistributedSampler(dataset_test, shuffle=False)
+        else:
+            test_sampler = torch.utils.data.SequentialSampler(dataset_test)
+
+        data_loader_test = torch.utils.data.DataLoader(
+            dataset_test, batch_size=1, sampler=test_sampler, num_workers=args.workers, collate_fn=utils.collate_fn
+        )
+
+        print(f"Dataset loaded")
+        image_size = dataset_test[0][0].size()
+
+        # Evaluate the model at specific resolution
+        confmat = evaluate(model, data_loader_test, device=device, num_classes=num_classes, exclude_classes=args.exclude_classes)
+        confmat.compute()
+        results = [image_size[1], image_size[1], confmat.acc_global.item(), confmat.meanIU,confmat.mIOU_reduced]
+
+        print(results)
+        all_results.append(results)
+
+    save_tensor = torch.tensor(all_results)
+    torch.save(save_tensor, os.path.join(args.output_dir, "resolution.pth"))
+    os.chmod(os.path.join(args.output_dir, "resolution.pth"), stat.S_IRWXU | stat.S_IRWXO)
+
+    return all_results
 
 def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler, device, epoch, print_freq, scaler=None):
     model.train()
@@ -167,8 +222,6 @@ def main(args):
 
     dataset, num_classes = get_dataset(args, is_train=True)
     dataset_test, _ = get_dataset(args, is_train=False)
-    #print(args.exclude_classes + dataset_test.exclude_classes)
-    #args.exclude_classes += dataset_test.exclude_classes
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(dataset)
         test_sampler = torch.utils.data.distributed.DistributedSampler(dataset_test, shuffle=False)
@@ -189,14 +242,7 @@ def main(args):
         dataset_test, batch_size=1, sampler=test_sampler, num_workers=args.workers, collate_fn=utils.collate_fn
     )
 
-    model = get_model(
-        args.model,
-        weights=args.weights,
-        weights_backbone=args.weights_backbone,
-        num_classes=num_classes,
-        aux_loss=args.aux_loss,
-        regseg_name=args.regseg_name
-    )
+    model =  get_param_model(args, num_classes)
     model.to(device)
     if args.distributed:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -291,12 +337,16 @@ def main(args):
             best_mrIoU = confmat.mIOU_reduced
             utils.save_on_master(checkpoint, os.path.join(args.output_dir, f"model_best.pth"))
         utils.save_on_master(checkpoint, os.path.join(args.output_dir, "checkpoint.pth"))
-        
+
+    # Save and permissions modifications
     os.chmod(os.path.join(args.output_dir, f"model_best.pth"),stat.S_IRWXU | stat.S_IRWXO)
     os.chmod(os.path.join(args.output_dir, "checkpoint.pth"), stat.S_IRWXU | stat.S_IRWXO)
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Training time {total_time_str}")
+
+    # Evaluate the trained model at different resolutions
+    resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), device, num_classes, args)
 
 
 def get_args_parser(add_help=True):
@@ -379,7 +429,7 @@ def get_args_parser(add_help=True):
 if __name__ == "__main__":
     args = get_args_parser().parse_args()
 
-    name = "regseg_" + str(args.scale_low_size) + "_" + str(args.scale_high_size)  + "_" + str(args.random_crop_size)
+    name = args.model + "_" + str(args.scale_low_size) + "_" + str(args.scale_high_size)  + "_" + str(args.random_crop_size)
 
     args.output_dir = args.output_dir + "/" + name
     if not os.path.isdir(args.output_dir) :
