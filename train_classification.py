@@ -121,7 +121,6 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix="
     return metric_logger.acc1.global_avg, metric_logger.acc5.global_avg
 
 def resolution_evaluate(model_state_dict, criterion, device, num_classes, args) :
-    print(args)
     from torchvision.transforms import v2
     from torchvision.datasets import ImageNet
     from torch.utils.data import DataLoader
@@ -130,6 +129,13 @@ def resolution_evaluate(model_state_dict, criterion, device, num_classes, args) 
     val_resize_resolutions = [120, 136, 152, 168, 184, 200, 216, 232, 248, 264, 280, 296, 312, 328, 344, 360]
 
     all_results = []
+
+    # In evaluation, set training architecture modifications to 0
+    args.first_conv_resize = 0
+    model = get_param_model(args, num_classes=num_classes)
+    model.load_state_dict(torch.load(model_state_dict)["model"])
+    model.to(device)
+    
     for val_crop_resolution in val_crop_resolutions :
         global_results = []
         for val_resize_resolution in val_resize_resolutions :
@@ -141,12 +147,6 @@ def resolution_evaluate(model_state_dict, criterion, device, num_classes, args) 
             val_loader =  DataLoader(val, 128, shuffle=True, num_workers=6)
 
             print("Dataset loaded")
-
-            # In evaluation, set training architecture modifications to 0
-            args.first_conv_resize = 0
-            model = get_param_model(args, num_classes=num_classes)
-            model.to(device)
-            model.load_state_dict(torch.load(model_state_dict)["model"])
 
             # Evaluate on all models
             results = evaluate(model, criterion, val_loader, device)
