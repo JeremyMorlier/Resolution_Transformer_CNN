@@ -79,6 +79,7 @@ def evaluate_ADE20K(args, model) :
                 iou_liste.append(iou)
                 sys.stdout.write(f'\r {time.strftime("%H:%M:%S", time.gmtime())} : {i} / {n}, {j} / {n2}   IoU: {iou}')
                 nb_crops += 1
+        sys.stdout.write(f'\r {time.strftime("%H:%M:%S", time.gmtime())} : {i} / {n}, {j} / {n2}   IoU: {iou} mIoU: {np.mean(iou_liste)}')
                 
     mean = np.mean(iou_liste)
     print(mean)
