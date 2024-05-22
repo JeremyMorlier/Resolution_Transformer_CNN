@@ -72,3 +72,14 @@ torchrun -m --standalone --nnodes=1 --nproc-per-node=1 distillation_sam --optim 
 --ade_dataset /nasbrain/datasets/ADE20k_full/ --sam_checkpoint /users/local/j20morli/data/sam_vit_h_4b8939.pth \
 --val_dirs sa_000022 --train_dirs sa_000022 sa_000024 sa_000070 sa_000135 sa_000137 sa_000138 sa_000259 sa_000477 sa_000977
 ```
+
+### OpenCLIP
+OpenCLIP training scripts are gathered from https://github.com/mlfoundations/open_clip 
+
+#### test
+```bash
+torchrun -m --standalone --nnodes=1 --nproc-per-node=1 training.main \
+    --imagenet-val /path/to/imagenet/validation \
+    --model ViT-B-32-quickgelu \
+    --pretrained laion400m_e32
+```
