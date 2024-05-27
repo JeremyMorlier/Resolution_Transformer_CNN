@@ -15,6 +15,6 @@
 module purge # nettoyer les modules herites par defaut
 conda deactivate # desactiver les environnements herites par defaut
 module load anaconda-py3/2023.09
-conda activate ../venvs/venvResolution
+conda activate $WORK/venvs/venvResolution
 set -x # activer l’echo des commandes
 srun python -u preprocess.py --dataset_path $DSDIR/SegmentAnything_1B --features_path $WORK/data/SAM_Features --device cuda:0 --sam_type vit_h --sam_ckpt $WORK/data/sam_vit_h_4b8939.pth --train_dirs sa_000030 sa_000031 sa_000032 sa_000033 sa_000034 sa_000035 sa_000036 sa_000037 sa_000038

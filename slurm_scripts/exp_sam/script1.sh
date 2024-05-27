@@ -15,7 +15,7 @@
 module purge # nettoyer les modules herites par defaut
 conda deactivate # desactiver les environnements herites par defaut
 module load anaconda-py3/2023.09
-conda activate ../venvs/venvResolution
+conda activate $WORK/venvs/venvResolution
 set -x # activer l’echo des commandes
 export CUDA_VISIBLE_DEVICES=0,1,2,3 
 srun torchrun --nproc_per_node=4 distillation_sam.py --optim adamw  --model mobilesam_vit --learning_rate 0.001 --weight_decay 0.0005 --epochs 40 --batch_size 8 --sam_checkpoint $WORK/data/sam_vit_h_4b8939.pth --work_dir $WORK/adamw_lr_1e-3_wd_5e-4_bs_8_epoch_16_ds2 --root_feat $WORK/data/SAM_Features --root_path $WORK/Distillation --dataset_path $DSDIR/SegmentAnything_1B --ade_dataset $SCRATCH/ADE20K/ --val_dirs sa_000021 --train_dirs sa_000022 sa_000024

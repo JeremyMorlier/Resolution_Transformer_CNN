@@ -83,3 +83,7 @@ torchrun -m --standalone --nnodes=1 --nproc-per-node=1 training.main \
     --model ViT-B-32-quickgelu \
     --pretrained laion400m_e32
 ```
+
+```bash
+torchrun -m --standalone --nnodes=1 --nproc-per-node=1 training.main --model ViT-B-32-quickgelu --dataset-type slip --dataset yfcc15m --root $DSDIR/YFCC100M/ --metadata $SCRATCH/YFCC100M/yfcc15m.pkl --imagenet-val $DSDIR/imagenet
+```
