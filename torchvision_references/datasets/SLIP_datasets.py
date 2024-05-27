@@ -17,8 +17,6 @@ import torch
 from torchvision import transforms
 from torchvision import datasets as t_datasets
 
-import utils
-
 from PIL import ImageFilter
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
