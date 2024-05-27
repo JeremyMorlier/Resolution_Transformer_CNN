@@ -17,8 +17,11 @@ import webdataset as wds
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler, IterableDataset, get_worker_info
 from torch.utils.data.distributed import DistributedSampler
+from torchvision import transforms
 from webdataset.filters import _shuffle
 from webdataset.tariterators import base_plus_ext, url_opener, tar_file_expander, valid_sample
+
+from torchvision_references.datasets import ImageCaptionDatasetSSL, ImageCaptionDatasetSLIP, ImageCaptionDatasetCLIP, GaussianBlur
 
 try:
     import horovod.torch as hvd
@@ -522,6 +525,55 @@ def get_synthetic_dataset(args, preprocess_fn, is_train, epoch=0, tokenizer=None
 
     return DataInfo(dataloader, sampler)
 
+def get_slip_dataset(args, preprocess_fn, is_train, tokenizer) :
+    dataset_name = args.train_data 
+    assert dataset_name
+
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+    
+    train_transform = transforms.Compose([
+            transforms.RandomResizedCrop(224, scale=(0.5, 1.0)),
+            transforms.ToTensor(),
+            normalize
+        ])
+    
+    augment = transforms.Compose([
+        transforms.RandomResizedCrop(224, scale=(0.08, 1.)),
+        transforms.RandomApply([
+            transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)  # not strengthened
+        ], p=0.8),
+        transforms.RandomGrayscale(p=0.2),
+        transforms.RandomApply([GaussianBlur([.1, 2.])], p=0.5),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        normalize,
+    ])
+
+    if "SIMCLR" in dataset_name:
+        dataset = ImageCaptionDatasetSSL(args.dataset, args.root, args.metadata, augment)
+    elif "CLIP" in dataset_name:
+        dataset = ImageCaptionDatasetCLIP(args.dataset, args.root, args.metadata, train_transform, tokenizer)
+    elif "SLIP" in dataset_name: 
+        dataset = ImageCaptionDatasetSLIP(args.dataset, args.root, args.metadata, train_transform, augment, tokenizer)
+    
+    num_samples = len(dataset)
+    sampler = DistributedSampler(dataset) if args.distributed and is_train else None
+    shuffle = is_train and sampler is None
+
+    dataloader = DataLoader(
+        dataset,
+        batch_size=args.batch_size,
+        shuffle=shuffle,
+        num_workers=args.workers,
+        pin_memory=True,
+        sampler=sampler,
+        drop_last=is_train,
+    )
+    dataloader.num_samples = num_samples
+    dataloader.num_batches = len(dataloader)
+
+    return DataInfo(dataloader, sampler)
 
 def get_dataset_fn(data_path, dataset_type):
     if dataset_type == "webdataset":
@@ -530,6 +582,8 @@ def get_dataset_fn(data_path, dataset_type):
         return get_csv_dataset
     elif dataset_type == "synthetic":
         return get_synthetic_dataset
+    elif dataset_type == "slip" :
+        return get_slip_dataset
     elif dataset_type == "auto":
         ext = data_path.split('.')[-1]
         if ext in ['csv', 'tsv']:

@@ -452,6 +452,26 @@ def parse_args(args):
         action="store_true",
         help='Use SigLip (sigmoid) loss.'
     )
+    
+    # SLIP Datasets(YFCC15M, YFCC100M, coco) specific arguments
+    parser.add_argument(
+        "--dataset",
+        default=None,
+        type=str,
+        help="SLIP: dataset"
+    )
+    parser.add_argument(
+        "--root",
+        default=None,
+        type=str,
+        help="SLIP: dataset root path"
+    )
+    parser.add_argument(
+        "--metadata",
+        default=None,
+        type=str,
+        help="SLIP: metadata file path (typically generated with make_dataset of SLIP)"
+    )
 
     args = parser.parse_args(args)
 

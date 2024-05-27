@@ -57,6 +57,8 @@ from .vision import VisionDataset
 from .voc import VOCDetection, VOCSegmentation
 from .widerface import WIDERFace
 
+from .SLIP_datasets import ImageCaptionDatasetSSL, ImageCaptionDatasetSLIP, ImageCaptionDatasetCLIP
+
 __all__ = (
     "LSUN",
     "LSUNClass",
@@ -130,6 +132,9 @@ __all__ = (
     "ETH3DStereo",
     "wrap_dataset_for_transforms_v2",
     "Imagenette",
+    "ImageCaptionDatasetSSL",
+    "ImageCaptionDatasetSLIP",
+    "ImageCaptionDatasetCLIP"
 )
 
 
