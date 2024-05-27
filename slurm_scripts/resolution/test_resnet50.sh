@@ -4,7 +4,7 @@
 #SBATCH --error=log/%j/errors.err # fichier d’erreur (%j = job ID)
 #SBATCH --constraint=v100-16g # demander des GPU a 16 Go de RAM
 #SBATCH --nodes=1 # reserver 1 nœud
-#SBATCH --ntasks=1 # reserver 4 taches (ou processus)
+#SBATCH --ntasks=4 # reserver 4 taches (ou processus)
 #SBATCH --gres=gpu:4 # reserver 4 GPU
 #SBATCH --cpus-per-task=10 # reserver 10 CPU par tache (et memoire associee)
 #SBATCH --time=100:00:00 # temps maximal d’allocation "(HH:MM:SS)"
