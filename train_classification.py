@@ -666,8 +666,6 @@ def get_args_parser(add_help=True):
 
 
 def get_name(args) :
-    name
-
 
     name_channel = ""
     if args.channels != None :
