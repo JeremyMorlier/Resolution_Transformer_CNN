@@ -665,23 +665,36 @@ def get_args_parser(add_help=True):
     return parser
 
 
+def get_name(args) :
+    name
+
+
+    name_channel = ""
+    if args.channels != None :
+        for element in args.channels :
+            name_channel += str(element) + "_"
+    else :
+        name_channel = "None"
+    
+    name = args.model + "_" + str(args.train_crop_size) + "_" + str(args.val_crop_size)  + "_" + str(args.val_resize_size) + "_" + str(args.first_conv_resize) + name_channel
+
+    return name
+
+def create_dir(dir) :
+    if not os.path.isdir(dir) :
+        os.mkdir(dir)
+    os.chmod(dir, stat.S_IRWXU | stat.S_IRWXO)
+
 if __name__ == "__main__":
     args = get_args_parser().parse_args()
 
-    # train_crop_size = [176,112, 128]
-    # val_crop_size = [224, 144, 160]
-    # val_res_size = [232, 152, 168]
+    name = get_name(args)
 
-    # for train_crop, val_size, val_crop in zip(train_crop_size, val_res_size, val_crop_size) :
-    #     args.val_resize_size = int(val_size)
-    #     args.val_crop_size = int(val_crop)
-    #     args.train_crop_size = int(train_crop)
-    name = args.model + "_" + str(args.train_crop_size) + "_" + str(args.val_crop_size)  + "_" + str(args.val_resize_size) + "_" + str(args.first_conv_resize) + "_" + str(args.channels)
-    args.output_dir = args.output_dir + "/" + name
-    if not os.path.isdir(args.output_dir) :
-        os.mkdir(args.output_dir)
-    os.chmod(args.output_dir, stat.S_IRWXU | stat.S_IRWXO)
-        
+    # Change output directory and create it if necessary
+    create_dir(args.output_dir)
+    args.output_dir = os.path.join(args.output_dir, name)
+    create_dir(args.output_dir)
+
     wandb.init(
         # set the wandb project where this run will be logged
         project="resolution_CNN_ViT",
