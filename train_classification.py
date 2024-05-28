@@ -12,6 +12,8 @@ from torch import nn
 from torch.utils.data.dataloader import default_collate
 from torchvision.transforms.functional import InterpolationMode
 
+from torchvision_references.references.common import create_dir
+
 import torchvision_references.references.classification.presets as presets
 from torchvision_references.references.classification.transforms import get_mixup_cutmix
 import torchvision_references.references.classification.utils as utils
@@ -677,11 +679,6 @@ def get_name(args) :
     name = args.model + "_" + str(args.train_crop_size) + "_" + str(args.val_crop_size)  + "_" + str(args.val_resize_size) + "_" + str(args.first_conv_resize) + name_channel
 
     return name
-
-def create_dir(dir) :
-    if not os.path.isdir(dir) :
-        os.mkdir(dir)
-    os.chmod(dir, stat.S_IRWXU | stat.S_IRWXO)
 
 if __name__ == "__main__":
     args = get_args_parser().parse_args()

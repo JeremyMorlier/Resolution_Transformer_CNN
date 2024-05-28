@@ -3,19 +3,21 @@ import os, stat
 import time
 import warnings
 
-import torchvision_references.references.segmentation.presets as presets
-import torchvision_references.references.segmentation.RegSeg.presets as RS_presets
 import torch
 import torch.utils.data
 import torchvision
-import torchvision_references.references.segmentation.utils as utils
-from torchvision_references.references.segmentation.coco_utils import get_coco
 from torch import nn
 from torch.optim.lr_scheduler import PolynomialLR
 from torchvision.transforms import functional as F, InterpolationMode
 
+from torchvision_references.references.common import create_dir
+
 from torchvision_references.models import get_model
 import torchvision_references.datasets as datasets
+import torchvision_references.references.segmentation.presets as presets
+import torchvision_references.references.segmentation.RegSeg.presets as RS_presets
+import torchvision_references.references.segmentation.utils as utils
+from torchvision_references.references.segmentation.coco_utils import get_coco
 
 import wandb
 
@@ -430,10 +432,9 @@ if __name__ == "__main__":
     args = get_args_parser().parse_args()
 
     name = args.model + "_" + str(args.scale_low_size) + "_" + str(args.scale_high_size)  + "_" + str(args.random_crop_size)
-
+    create_dir(args.output_dir)
     args.output_dir = args.output_dir + "/" + name
-    if not os.path.isdir(args.output_dir) :
-        os.mkdir(args.output_dir)
+    create_dir(args.output_dir)
 
     wandb.init(
         # set the wandb project where this run will be logged
