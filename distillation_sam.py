@@ -289,7 +289,6 @@ if __name__ == "__main__":
     project="Data_Distillation",
     name=name,
     tags=["SAM"],
-    mode="offline",
     
     # track hyperparameters and run metadata
     config=args
