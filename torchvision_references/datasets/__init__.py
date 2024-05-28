@@ -57,7 +57,7 @@ from .vision import VisionDataset
 from .voc import VOCDetection, VOCSegmentation
 from .widerface import WIDERFace
 
-from .SLIP_datasets import ImageCaptionDatasetSSL, ImageCaptionDatasetSLIP, ImageCaptionDatasetCLIP
+from .SLIP_datasets import ImageCaptionDatasetSSL, ImageCaptionDatasetSLIP, ImageCaptionDatasetCLIP, GaussianBlur
 
 __all__ = (
     "LSUN",
@@ -134,7 +134,8 @@ __all__ = (
     "Imagenette",
     "ImageCaptionDatasetSSL",
     "ImageCaptionDatasetSLIP",
-    "ImageCaptionDatasetCLIP"
+    "ImageCaptionDatasetCLIP",
+    "GaussianBlur"
 )
 
 
