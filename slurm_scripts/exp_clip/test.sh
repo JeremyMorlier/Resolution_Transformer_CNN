@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=TravailGPU # nom du job
-#SBATCH --output=log/%j/logs.out # fichier de sortie (%j = job ID)
-#SBATCH --error=log/%j/errors.err # fichier d’erreur (%j = job ID)
+#SBATCH --job-name=CLIP # nom du job
+#SBATCH --output=log/CLIP/%j/logs.out # fichier de sortie (%j = job ID)
+#SBATCH --error=log/CLIP/%j/errors.err # fichier d’erreur (%j = job ID)
 #SBATCH --constraint=v100-16g # demander des GPU a 16 Go de RAM
 #SBATCH --nodes=1 # reserver 1 nœud
 #SBATCH --ntasks=1 # reserver 4 taches (ou processus)
@@ -19,5 +19,6 @@ conda activate $WORK/venvs/venvResolution
 set -x # activer l’echo des commandes
 export CUDA_VISIBLE_DEVICES=0,1,2,3 
 export WANDB_DIR=$WORK/wandb/
+export WANDB_MODE=offline
 
 srun torchrun --nproc_per_node 4 -m training.main --model ViT-B-32-quickgelu --dataset-type slip --dataset yfcc15m --root $DSDIR/YFCC100M/ --metadata $SCRATCH/YFCC100M/yfcc15m.pkl --imagenet-val $DSDIR/imagenet

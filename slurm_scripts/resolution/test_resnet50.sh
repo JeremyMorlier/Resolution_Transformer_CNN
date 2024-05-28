@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=TravailGPU # nom du job
-#SBATCH --output=log/%j/logs.out # fichier de sortie (%j = job ID)
-#SBATCH --error=log/%j/errors.err # fichier d’erreur (%j = job ID)
+#SBATCH --job-name=ResNet # nom du job
+#SBATCH --output=log/ResNet/%j/logs.out # fichier de sortie (%j = job ID)
+#SBATCH --error=log/ResNet/%j/errors.err # fichier d’erreur (%j = job ID)
 #SBATCH --constraint=v100-16g # demander des GPU a 16 Go de RAM
 #SBATCH --nodes=1 # reserver 1 nœud
 #SBATCH --ntasks=4 # reserver 4 taches (ou processus)
@@ -19,6 +19,8 @@ conda activate $WORK/venvs/venvResolution
 set -x # activer l’echo des commandes
 export CUDA_VISIBLE_DEVICES=0,1,2,3 
 export WANDB_DIR=$WORK/wandb/
+export WANDB_MODE=offline
+
 CUDA_VISIBLE_DEVICES=0 srun torchrun --standalone --nnodes=1 --nproc-per-node=1 train_classification.py --model resnet50_resize --batch-size 256 --lr 0.1 --lr-scheduler cosineannealinglr --lr-warmup-epochs 5 --lr-warmup-method linear --auto-augment ta_wide --epochs 120 --random-erase 0.1 --weight-decay 0.00002 --norm-weight-decay 0.0 --label-smoothing 0.1 --mixup-alpha 0.2 --cutmix-alpha 1.0 --train-crop-size 176 --model-ema --val-resize-size 232 --val-crop-size 224 --channels  16 32 32 512 --output-dir $WORK/results_resolution/ --data-path $DSDIR/imagenet &
 P1=$!
 CUDA_VISIBLE_DEVICES=1 srun torchrun --standalone --nnodes=1 --nproc-per-node=1 train_classification.py --model resnet50_resize --batch-size 256 --lr 0.1 --lr-scheduler cosineannealinglr --lr-warmup-epochs 5 --lr-warmup-method linear --auto-augment ta_wide --epochs 120 --random-erase 0.1 --weight-decay 0.00002 --norm-weight-decay 0.0 --label-smoothing 0.1 --mixup-alpha 0.2 --cutmix-alpha 1.0 --train-crop-size 176 --model-ema --val-resize-size 232 --val-crop-size 224 --channels  16 64 128 256 --output-dir $WORK/results_resolution/  --data-path $DSDIR/imagenet &
