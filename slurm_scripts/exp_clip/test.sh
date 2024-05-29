@@ -21,4 +21,4 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3
 export WANDB_DIR=$WORK/wandb/
 export WANDB_MODE=offline
 
-srun torchrun --nproc_per_node 4 -m training.main --model ViT-B-32-quickgelu --dataset-type slip --dataset yfcc15m --root $DSDIR/YFCC100M/ --metadata $SCRATCH/YFCC100M/yfcc15m.pkl --imagenet-val $DSDIR/imagenet/val/
+srun torchrun --nproc_per_node 4 -m training.main --workers=8 --epochs=30 --wd=0.1 --lr=1e-3 --batch-size=128 --warmup 10000 --model ViT-B-32-quickgelu --dataset-type slip --dataset yfcc15m --root $DSDIR/YFCC100M/ --metadata $SCRATCH/YFCC100M/yfcc15m.pkl --imagenet-val $DSDIR/imagenet/val/
