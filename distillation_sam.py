@@ -52,7 +52,7 @@ def evaluate_ADE20K(args, model) :
         full_file_name = os.path.join(index_ade20k['folder'][i], index_ade20k['filename'][i])
         folder_name = os.path.join(ade20k_path,full_file_name.replace(".jpg", ''))
         folder_files = glob.glob(f"{folder_name}/*")
-
+        print(os.path.join(ade20k_path, full_file_name))
         info = utils_ade20k.loadAde20K(os.path.join(ade20k_path, full_file_name))
         image = cv2.imread(info['img_name'])[:,:,::-1]
 
@@ -192,16 +192,14 @@ def main(args):
     
     # dataset
     train_dirs = args.train_dirs
-    val_dirs = args.val_dirs
 
     train_dataset = sa1b_dataset(args.dataset_path, train_dirs, transform, feat_root=args.root_feat)
-    val_dataset = sa1b_dataset(args.dataset_path, val_dirs)
 
     # training sampler
     train_sampler = DistributedSampler(train_dataset)
+
     # data loader
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size // dist.get_world_size(), shuffle=(train_sampler is None), num_workers=args.num_workers, sampler=train_sampler, drop_last=True)
-    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=args.num_workers)
 
     # model
     model = get_param_model(args)
@@ -266,10 +264,15 @@ def main(args):
         model.load_state_dict(torch.load(os.path.join(args.root_path, args.work_dir, args.save_dir, "iter_final.pth")))
         model.to(device)
         model.eval()
-        print("Evaluate against ViT_H", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()))
-        result = evaluate_against_sam(args, model, val_loader)
-        print("Evaluation finished: ", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()), " mIoU: ", result)
-        wandb.log({"ViT_H_mIoU":result})
+
+        if args.val_dirs != None :
+            print("Evaluate against ViT_H", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()))
+            val_dirs = args.val_dirs
+            val_dataset = sa1b_dataset(args.dataset_path, val_dirs)
+            val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=args.num_workers)
+            result = evaluate_against_sam(args, model, val_loader)
+            print("Evaluation finished: ", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()), " mIoU: ", result)
+            wandb.log({"ViT_H_mIoU":result})
 
         if args.ade_dataset != None :
             print("Evaluate on ADE20k", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()))
