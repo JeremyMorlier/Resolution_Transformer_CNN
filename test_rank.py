@@ -22,6 +22,8 @@ def get_args_parser(add_help=True):
 
     parser.add_argument("--patate", default="2", type=str, help="dataset path")
 
+    return parser
+
 if __name__ == "__main__":
     args = get_args_parser().parse_args()
     main(args)
