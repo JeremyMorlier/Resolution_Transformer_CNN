@@ -1,6 +1,6 @@
 
 import torchvision_references.references.segmentation.utils as utils1
-import torchvision_references.references.segmentation.utils as utils2
+import torchvision_references.references.classification.utils as utils2
 
 def main(args, parser1):
 
@@ -23,4 +23,4 @@ def get_args_parser(add_help=True):
 
 if __name__ == "__main__":
     args = get_args_parser().parse_args()
-    main(args, True)
+    main(args, False)
