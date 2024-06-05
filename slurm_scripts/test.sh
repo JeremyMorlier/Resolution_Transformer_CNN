@@ -21,12 +21,8 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3
 export WANDB_DIR=$WORK/wandb/
 export WANDB_MODE=offline
 
-CUDA_VISIBLE_DEVICES=0 srun torchrun --standalone --nnodes=1 --nproc-per-node=1 test_rank.py --patate 1 &
-P1=$!
-CUDA_VISIBLE_DEVICES=1 srun torchrun --standalone --nnodes=1 --nproc-per-node=1 test_rank.py --patate 2 &
-P2=$!
-CUDA_VISIBLE_DEVICES=2 srun torchrun --standalone --nnodes=1 --nproc-per-node=1 test_rank.py --patate 3 &
-P3=$!
-CUDA_VISIBLE_DEVICES=3 srun torchrun --standalone --nnodes=1 --nproc-per-node=1 test_rank.py --patate 4 &
-P4=$!
+CUDA_VISIBLE_DEVICES=0 srun torchrun --standalone --nnodes=1 --nproc-per-node=1 test_rank.py --patate 1 
+CUDA_VISIBLE_DEVICES=1 srun torchrun --standalone --nnodes=1 --nproc-per-node=1 test_rank.py --patate 2 
+CUDA_VISIBLE_DEVICES=2 srun torchrun --standalone --nnodes=1 --nproc-per-node=1 test_rank.py --patate 3
+CUDA_VISIBLE_DEVICES=3 srun torchrun --standalone --nnodes=1 --nproc-per-node=1 test_rank.py --patate 4 
 wait $P1 $P2 $P3 $P4
