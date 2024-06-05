@@ -672,7 +672,7 @@ def get_name(args) :
     name_channel = ""
     if args.channels != None :
         for element in args.channels :
-            name_channel += str(element) + "_"
+            name_channel += "_" + str(element)
     else :
         name_channel = "None"
     
