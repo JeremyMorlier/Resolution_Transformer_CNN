@@ -512,7 +512,8 @@ def main(args):
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Training time {total_time_str}")
     # Last model evaluation
-    resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), criterion, device, num_classes, args)
+    if "vit" not in args.model :
+        resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), criterion, device, num_classes, args)
 
     total_time = time.time() - training_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
