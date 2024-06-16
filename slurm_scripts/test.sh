@@ -21,4 +21,5 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3
 export WANDB_DIR=$WORK/wandb/
 export WANDB_MODE=offline
 
-srun torchrun --standalone --nnodes=1 --nproc-per-node=1 test_rank.py --patate 1 
+srun python -u test_rank.py --patate 1 
+#srun torchrun --standalone --nnodes=1 --nproc-per-node=1 test_rank.py --patate 1 
