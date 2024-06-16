@@ -1,13 +1,9 @@
 
-import torchvision_references.references.segmentation.utils as utils1
 import torchvision_references.references.classification.utils as utils2
 
-def main(args, parser1):
+def main(args):
 
-    if parser1:
-        utils1.init_distributed_mode(args)
-    else :
-        utils2.init_distributed_mode(args)
+    utils2.init_distributed_mode(args)
     print(args)
 
 def get_args_parser(add_help=True):
@@ -23,4 +19,4 @@ def get_args_parser(add_help=True):
 
 if __name__ == "__main__":
     args = get_args_parser().parse_args()
-    main(args, False)
+    main(args)
