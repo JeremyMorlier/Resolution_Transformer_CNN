@@ -125,8 +125,8 @@ def all_gather_object(args, obj, dst=0):
     
 def main(args):
 
-    utils2.init_distributed_mode(args)
-    #init_distributed_device(args)
+    #utils2.init_distributed_mode(args)
+    init_distributed_device(args)
     print(args)
 
 def get_args_parser(add_help=True):
