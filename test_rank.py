@@ -1,5 +1,5 @@
 
-import torchvision_references.references.classification.utils as utils2
+import torchvision_references.references.common as common
 
 
 import os
@@ -23,18 +23,6 @@ def is_local_master(args):
 
 def is_master(args, local=False):
     return is_local_master(args) if local else is_global_master(args)
-
-
-def is_using_horovod():
-    # NOTE w/ horovod run, OMPI vars should be set, but w/ SLURM PMI vars will be set
-    # Differentiating between horovod and DDP use via SLURM may not be possible, so horovod arg still required...
-    ompi_vars = ["OMPI_COMM_WORLD_RANK", "OMPI_COMM_WORLD_SIZE"]
-    pmi_vars = ["PMI_RANK", "PMI_SIZE"]
-    if all([var in os.environ for var in ompi_vars]) or all([var in os.environ for var in pmi_vars]):
-        return True
-    else:
-        return False
-
 
 def is_using_distributed():
     if 'WORLD_SIZE' in os.environ:
@@ -126,7 +114,7 @@ def all_gather_object(args, obj, dst=0):
 def main(args):
 
     #utils2.init_distributed_mode(args)
-    init_distributed_device(args)
+    common.init_distributed_device(args)
     print(args)
 
 def get_args_parser(add_help=True):
