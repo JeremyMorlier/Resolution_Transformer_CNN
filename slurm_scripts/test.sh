@@ -31,5 +31,5 @@ master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_ADDR=$master_addr
 echo "MASTER_ADDR="$MASTER_ADDR
 
-srun python -u test_rank.py --patate 1 --world_size 4
+srun python -u test_rank.py --patate 1 --world-size 4
 #srun torchrun --standalone --nnodes=1 --nproc-per-node=1 test_rank.py --patate 1 
