@@ -25,10 +25,10 @@ class RegSeg_model(nn.Module):
     # exp48_decoder26 is what we call RegSeg in our paper
     # exp53_decoder29 is a larger version of exp48_decoder26
     # all the other models are for ablation studies
-    def __init__(self, regseg_name, num_classes, pretrained="", ablate_decoder=False,change_num_classes=False, gw=16, channels=[48, 128, 256]):
+    def __init__(self, regseg_name, num_classes, pretrained="", ablate_decoder=False,change_num_classes=False, gw=16, channels=[48, 128, 256], first_conv_resize=0):
         super().__init__()
         # TODO: change for config parameter
-        self.stem=ConvBnAct(3,32,3,2,1)
+        self.stem=ConvBnAct(3,32,3,2,1, first_conv_resize=first_conv_resize)
         print(regseg_name)
         body_name, decoder_name=regseg_name.split("_")
         if "exp30" == body_name:

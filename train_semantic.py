@@ -77,7 +77,7 @@ def get_param_model(args, num_classes) :
     elif args.model == "vit_custom" :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes, patch_size=args.patch_size, num_layers=args.num_layers, num_heads=args.num_heads, hidden_dim=args.hidden_dim, mlp_dim=args.mlp_dim, image_size=args.img_size)
     elif args.model == "regseg_custom" :
-        model = get_model(args.model, weights=args.weights, weights_backbone=args.weights_backbone, num_classes=num_classes, aux_loss=args.aux_loss, regseg_name=args.regseg_name
+        model = get_model(args.model, weights=args.weights, weights_backbone=args.weights_backbone, num_classes=num_classes, aux_loss=args.aux_loss, regseg_name=args.regseg_name, first_conv_resize=args.first_conv_resize
     )
     else :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes)
@@ -425,7 +425,7 @@ def get_args_parser(add_help=True):
     parser.add_argument("--augmode", default=None, type=str, help="augmentation mode")
     # RegSeg parser arguments
     parser.add_argument("--regseg_name", default="custom_decoder4", type=str, help="regseg instance name(defines encoder and decoder used)")
-
+    parser.add_argument("--first_conv_resize", default=0, type=int, help="if different than 0 rescale the input activations after the first convolution")
     return parser
 
 if __name__ == "__main__":

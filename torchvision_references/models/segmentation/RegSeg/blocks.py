@@ -10,7 +10,7 @@ def norm2d(out_channels):
 
 class ConvBnAct(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=1, stride=1, padding=0, dilation=1, groups=1,
-                 bias=False, apply_act=True):
+                 bias=False, apply_act=True, first_conv_resize=0):
         super(ConvBnAct, self).__init__()
         self.conv=nn.Conv2d(in_channels,out_channels,kernel_size,stride,padding,dilation,groups,bias)
         self.bn=norm2d(out_channels)
@@ -18,8 +18,12 @@ class ConvBnAct(nn.Module):
             self.act=activation()
         else:
             self.act=None
+
+        self.first_conv_resize = first_conv_resize
     def forward(self, x):
         x = self.conv(x)
+        if self.first_conv_resize != 0 :
+            x = torch.nn.functional.interpolate(x, self.first_conv_resize)
         x = self.bn(x)
         if self.act is not None:
             x=self.act(x)
