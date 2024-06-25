@@ -77,8 +77,9 @@ def get_param_model(args, num_classes) :
     elif args.model == "vit_custom" :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes, patch_size=args.patch_size, num_layers=args.num_layers, num_heads=args.num_heads, hidden_dim=args.hidden_dim, mlp_dim=args.mlp_dim, image_size=args.img_size)
     elif args.model == "regseg_custom" :
-        model = get_model(args.model, weights=args.weights, weights_backbone=args.weights_backbone, num_classes=num_classes, aux_loss=args.aux_loss, regseg_name=args.regseg_name, first_conv_resize=args.first_conv_resize
-    )
+        channels = [32, 48, 128, 256, 320] if args.regseg_channels == None else args.regseg_channels
+        gw = 16 if args.regseg_gw == 0 else args.regseg_gw
+        model = get_model(args.model, weights=args.weights, weights_backbone=args.weights_backbone, num_classes=num_classes, aux_loss=args.aux_loss, regseg_name=args.regseg_name, channels=channels, gw=gw, first_conv_resize=args.first_conv_resize)
     else :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes)
     
@@ -138,6 +139,7 @@ def resolution_evaluate(model_state_dict, device, num_classes, args) :
     all_results = []
 
     # In evaluation, set training architecture modifications to 0
+    args.first_conv_resize = 0
     model = get_param_model(args, num_classes=num_classes)
     model.load_state_dict(torch.load(model_state_dict)["model"])
     model.to(device)
@@ -426,12 +428,32 @@ def get_args_parser(add_help=True):
     # RegSeg parser arguments
     parser.add_argument("--regseg_name", default="custom_decoder4", type=str, help="regseg instance name(defines encoder and decoder used)")
     parser.add_argument("--first_conv_resize", default=0, type=int, help="if different than 0 rescale the input activations after the first convolution")
+    parser.add_argument('--regseg_channels', nargs='+', type=int, default=None, help="RegSeg channels list")
+    parser.add_argument('--regseg_gw', type=int, default=0,  help="RegSeg gw")
     return parser
+    
+def get_name(args) :
+
+    name_channel = ""
+    if args.regseg_channels != None :
+        for element in args.regseg_channels :
+            name_channel += "_" + str(element)
+    else :
+        name_channel = "None"
+    
+    if "resnet" in args.model :
+        name = args.model + "_" + str(args.train_crop_size) + "_" + str(args.val_crop_size)  + "_" + str(args.val_resize_size) + "_" + str(args.first_conv_resize) + name_channel
+    elif "vit" in args.model:
+        name = args.model + "_" + str(args.patch_size) + "_" + str(args.num_layers) + "_" + str(args.num_heads) + "_" + str(args.hidden_dim) + "_" + str(args.mlp_dim) + "_" + str(args.img_size)
+    if "regseg" in args.model :
+        name = args.model + "_" + str(args.scale_low_size) + "_" + str(args.scale_high_size)  + "_" + str(args.random_crop_size) + "_" + str(args.first_conv_resize) + "_" + str(args.regseg_gw) + "_" + name_channel
+
+    return name
 
 if __name__ == "__main__":
     args = get_args_parser().parse_args()
 
-    name = args.model + "_" + str(args.scale_low_size) + "_" + str(args.scale_high_size)  + "_" + str(args.random_crop_size)
+    name = get_name(args)
     create_dir(args.output_dir)
     args.output_dir = args.output_dir + "/" + name
     create_dir(args.output_dir)

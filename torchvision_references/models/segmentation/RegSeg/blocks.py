@@ -367,16 +367,16 @@ class RegSegBody(nn.Module):
         super().__init__()
         attention="se"
         self.channells = channells
-        self.stage4=DBlock(32, channells[0], [1], gw, 2, attention)
+        self.stage4=DBlock(channells[0], channells[1], [1], gw, 2, attention)
         self.stage8=nn.Sequential(
-            DBlock(channells[0], channells[1], [1], gw, 2, attention),
-            DBlock(channells[1], channells[1], [1], gw, 1, attention),
-            DBlock(channells[1], channells[1], [1], gw, 1, attention)
+            DBlock(channells[1], channells[2], [1], gw, 2, attention),
+            DBlock(channells[2], channells[2], [1], gw, 1, attention),
+            DBlock(channells[2], channells[2], [1], gw, 1, attention)
         )
         self.stage16=nn.Sequential(
-            DBlock(channells[1], channells[2], [1], gw, 2, attention),
-            *generate_stage2(ds[:-1], lambda d: DBlock(channells[2], channells[2], d, gw, 1, attention)),
-            DBlock(channells[2], 320, ds[-1], gw, 1, attention)
+            DBlock(channells[2], channells[3], [1], gw, 2, attention),
+            *generate_stage2(ds[:-1], lambda d: DBlock(channells[3], channells[3], d, gw, 1, attention)),
+            DBlock(channells[3], channells[4], ds[-1], gw, 1, attention)
         )
     def forward(self,x):
         x4=self.stage4(x)
@@ -384,7 +384,7 @@ class RegSegBody(nn.Module):
         x16=self.stage16(x8)
         return {"4":x4,"8":x8,"16":x16}
     def channels(self):
-        return {"4":self.channells[0],"8":self.channells[1],"16":320}
+        return {"4":self.channells[1],"8":self.channells[2],"16":self.channells[4]}
 
 class RegSegBody2(nn.Module):
     def __init__(self,ds):

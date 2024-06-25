@@ -53,6 +53,13 @@ torchrun --standalone --nnodes=1 --nproc-per-node=1 train_semantic.py --model re
 --lr-warmup-epochs 9 --lr-warmup-method linear --lr-warmup-start-factor 0.1 
 ```
 
+```bash
+WANDB_DIR=../wandb WANDB_CACHE_DIR=../cache/ python3  train_semantic.py --output-dir /nasbrain/j20morli/results/ \
+--dataset cityscapes --data-path /nasbrain/datasets/ cityscapes/ --exclude-classes 14 15 16 \
+--scale-low-size 400 --scale-high-size 1600 --random-crop-size 1024 --augmode randaug_reduced \
+--model regseg_custom --regseg_name exp48_decoder26 --regseg_gw 16 --regseg_channels 32 24 64 128 320 \
+--epochs 1000 --momentum 0.9  --lr 0.05 -b 8 --lr-warmup-epochs 9 --lr-warmup-method linear --lr-warmup-start-factor 0.1 
+```
 ## Segment Anything Distillation
 ```bash
 torchrun --standalone --nnodes=1 --nproc-per-node=1 distillation_sam.py --optim adamw --learning_rate 0.001 --weight_decay 0.0005 --epochs 8 --batch_size 8 --model mobilesam_vit\
@@ -87,3 +94,5 @@ torchrun -m --standalone --nnodes=1 --nproc-per-node=1 training.main \
 ```bash
 torchrun -m --standalone --nnodes=1 --nproc-per-node=1 training.main --model ViT-B-32-quickgelu --dataset-type slip --dataset yfcc15m --root $DSDIR/YFCC100M/ --metadata $SCRATCH/YFCC100M/yfcc15m.pkl --imagenet-val $DSDIR/imagenet
 ```
+
+WANDB_DIR=../wandb/ WANDB_CACHE_DIR=../cache
