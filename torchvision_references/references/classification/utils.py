@@ -251,6 +251,9 @@ def init_distributed_mode(args):
         print("test")
         args.rank = int(os.environ["SLURM_PROCID"])
         args.gpu = args.rank % torch.cuda.device_count()
+        local_rank = int(os.environ['SLURM_LOCALID'])
+        args.world_size = int(os.environ['SLURM_NTASKS'])
+        cpus_per_task = int(os.environ['SLURM_CPUS_PER_TASK'])
     elif hasattr(args, "rank"):
         pass
     else:
@@ -262,7 +265,7 @@ def init_distributed_mode(args):
     print(args.gpu)
     torch.cuda.set_device(args.gpu)
     args.dist_backend = "nccl"
-    print(f"| distributed init (rank {args.rank}): {args.dist_url}", flush=True)
+    print(f"| distributed init (rank {args.rank}): {args.dist_url} {args.gpu} {args.world_size}", flush=True)
     torch.distributed.init_process_group(
         backend=args.dist_backend, init_method=args.dist_url, world_size=args.world_size, rank=args.rank
     )
