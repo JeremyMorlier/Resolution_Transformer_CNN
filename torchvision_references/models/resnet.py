@@ -176,7 +176,7 @@ class ResNet(nn.Module):
         replace_stride_with_dilation: Optional[List[bool]] = None,
         norm_layer: Optional[Callable[..., nn.Module]] = None,
         first_conv_resize: int = 0,
-        channels: List[int] = [64, 128, 256, 512]
+        channels: List[int] = [64, 64, 128, 256, 512]
     ) -> None:
         super().__init__()
         _log_api_usage_once(self)
@@ -184,7 +184,7 @@ class ResNet(nn.Module):
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
 
-        self.inplanes = 64
+        self.inplanes = channels[0]
         self.dilation = 1
         if replace_stride_with_dilation is None:
             # each element in the tuple indicates if we should replace
@@ -201,12 +201,12 @@ class ResNet(nn.Module):
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, channels[0], layers[0])
-        self.layer2 = self._make_layer(block, channels[1], layers[1], stride=2, dilate=replace_stride_with_dilation[0])
-        self.layer3 = self._make_layer(block, channels[2], layers[2], stride=2, dilate=replace_stride_with_dilation[1])
-        self.layer4 = self._make_layer(block, channels[3], layers[3], stride=2, dilate=replace_stride_with_dilation[2])
+        self.layer1 = self._make_layer(block, channels[1], layers[0])
+        self.layer2 = self._make_layer(block, channels[2], layers[1], stride=2, dilate=replace_stride_with_dilation[0])
+        self.layer3 = self._make_layer(block, channels[3], layers[2], stride=2, dilate=replace_stride_with_dilation[1])
+        self.layer4 = self._make_layer(block, channels[4], layers[3], stride=2, dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(channels[3] * block.expansion, num_classes)
+        self.fc = nn.Linear(channels[4] * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -1035,6 +1035,6 @@ def resnet50_resize(*, weights: Optional[ResNet50_Weights] = None, progress: boo
     if channels != None :
         channels = channels
     else :
-        channels = [64, 128, 256, 512]
-
+        channels = [64, 64, 128, 256, 512]
+    print(channels)
     return _resnet(Bottleneck, depths, weights, progress, channels=channels, **kwargs)
