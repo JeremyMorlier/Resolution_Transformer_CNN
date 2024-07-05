@@ -12,7 +12,7 @@ from torch import nn
 from torch.utils.data.dataloader import default_collate
 from torchvision.transforms.functional import InterpolationMode
 
-from torchvision_references.references.common import create_dir
+from torchvision_references.references.common import create_dir, is_main_process
 
 import torchvision_references.references.classification.presets as presets
 from torchvision_references.references.classification.transforms import get_mixup_cutmix
@@ -315,6 +315,23 @@ def main(args):
     utils.init_distributed_mode(args)
     print(args)
 
+    # Setup
+    if is_main_process() :
+        # Change output directory and create it if necessary
+        create_dir(args.output_dir)
+        args.output_dir = os.path.join(args.output_dir, args.name)
+        create_dir(args.output_dir)
+
+        wandb.init(
+            # set the wandb project where this run will be logged
+            project="resolution_CNN_ViT",
+            name=args.name,
+            tags=[args.model , "torchvision_reference", "train_crop_" + str(args.train_crop_size), "val_crop_" + str(args.val_crop_size)],
+            
+            # track hyperparameters and run metadata
+            config=args
+        )
+
     device = torch.device(args.device)
 
     if args.use_deterministic_algorithms:
@@ -521,6 +538,10 @@ def main(args):
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Evaluation time {total_time_str}")
 
+    # Close WandB
+    if is_main_process():
+        wandb.finish()
+
 
 
 def get_args_parser(add_help=True):
@@ -689,21 +710,6 @@ def get_name(args) :
 if __name__ == "__main__":
     args = get_args_parser().parse_args()
 
-    name = get_name(args)
+    args.name = get_name(args)
 
-    # Change output directory and create it if necessary
-    create_dir(args.output_dir)
-    args.output_dir = os.path.join(args.output_dir, name)
-    create_dir(args.output_dir)
-
-    wandb.init(
-        # set the wandb project where this run will be logged
-        project="resolution_CNN_ViT",
-        name=name,
-        tags=[args.model , "torchvision_reference", "train_crop_" + str(args.train_crop_size), "val_crop_" + str(args.val_crop_size)],
-        
-        # track hyperparameters and run metadata
-        config=args
-    )
     main(args)
-    wandb.finish()
