@@ -159,6 +159,8 @@ def resolution_evaluate(model_state_dict, criterion, device, num_classes, args) 
     torch.save(save_tensor, os.path.join(args.output_dir, "resolution.pth"))
     os.chmod(os.path.join(args.output_dir, "resolution.pth"), stat.S_IRWXU | stat.S_IRWXO)
 
+    return save_tensor, val_crop_resolutions, val_resize_resolution
+
 def _get_cache_path(filepath):
     import hashlib
 
@@ -513,8 +515,8 @@ def main(args):
     print(f"Training time {total_time_str}")
     # Last model evaluation
     if "vit" not in args.model :
-        resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), criterion, device, num_classes, args)
-
+        results, val_crop_resolutions, val_resize_resolution = resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), criterion, device, num_classes, args)
+        wandb.log({"acc_resolutions": results, "val_crop_resolutions": val_crop_resolutions, "val_resize_resolution": val_resize_resolution})
     total_time = time.time() - training_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Evaluation time {total_time_str}")
