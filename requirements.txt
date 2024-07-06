@@ -90,3 +90,4 @@ wandb==0.16.3
 wcwidth==0.2.13
 webcolors==1.13
 webdataset==0.2.86
+hostlist

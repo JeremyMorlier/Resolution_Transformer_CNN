@@ -7,6 +7,7 @@ import time
 from collections import defaultdict, deque, OrderedDict
 from typing import List, Optional, Tuple
 
+import hostlist
 import torch
 import torch.distributed as dist
 
@@ -254,6 +255,16 @@ def init_distributed_mode(args):
         local_rank = int(os.environ['SLURM_LOCALID'])
         args.world_size = int(os.environ['SLURM_NTASKS'])
         cpus_per_task = int(os.environ['SLURM_CPUS_PER_TASK'])
+
+        # get node list from slurm
+        hostnames = hostlist.expand_hostlist(os.environ['SLURM_JOB_NODELIST'])
+        
+        # get IDs of reserved GPU
+        gpu_ids = os.environ['SLURM_STEP_GPUS'].split(",")
+        
+        # define MASTER_ADD & MASTER_PORT
+        os.environ['MASTER_ADDR'] = hostnames[0]
+        os.environ['MASTER_PORT'] = str(12345 + int(min(gpu_ids)))
     elif hasattr(args, "rank"):
         pass
     else:
