@@ -4,7 +4,7 @@
 #SBATCH --error=log/VITB/%j/errors.err # fichier d’erreur (%j = job ID)
 #SBATCH --constraint=a100
 #SBATCH --nodes=1 # reserver 1 nœud
-#SBATCH --ntasks=4 reserver 4 taches (ou processus)
+#SBATCH --ntasks=4 #reserver 4 taches (ou processus)
 #SBATCH --gres=gpu:4 # reserver 4 GPU
 #SBATCH --cpus-per-task=8 # reserver 10 CPU par tache (et memoire associee)
 #SBATCH --time=20:00:00 # temps maximal d’allocation "(HH:MM:SS)"
