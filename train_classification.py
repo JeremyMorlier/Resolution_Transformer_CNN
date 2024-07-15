@@ -12,13 +12,13 @@ from torch import nn
 from torch.utils.data.dataloader import default_collate
 from torchvision.transforms.functional import InterpolationMode
 
-from torchvision_references.references.common import create_dir, is_main_process
+from references.common import create_dir, is_main_process
 
-import torchvision_references.references.classification.presets as presets
-from torchvision_references.references.classification.transforms import get_mixup_cutmix
-import torchvision_references.references.classification.utils as utils
-from torchvision_references.references.classification.sampler import RASampler
-from torchvision_references.models import get_model
+import references.classification.presets as presets
+from references.classification.transforms import get_mixup_cutmix
+import references.classification.utils as utils
+from references.classification.sampler import RASampler
+from models import get_model
 
 import wandb
 
@@ -708,7 +708,7 @@ def get_name(args) :
         for element in args.channels :
             name_channel += "_" + str(element)
     else :
-        name_channel = "None"
+        name_channel = "_None"
     
     if "resnet" in args.model :
         name = args.model + "_" + str(args.train_crop_size) + "_" + str(args.val_crop_size)  + "_" + str(args.val_resize_size) + "_" + str(args.first_conv_resize) + name_channel

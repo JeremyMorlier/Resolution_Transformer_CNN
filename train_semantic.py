@@ -10,14 +10,14 @@ from torch import nn
 from torch.optim.lr_scheduler import PolynomialLR
 from torchvision.transforms import functional as F, InterpolationMode
 
-from torchvision_references.references.common import create_dir
+from references.common import create_dir
 
-from torchvision_references.models import get_model
-import torchvision_references.datasets as datasets
-import torchvision_references.references.segmentation.presets as presets
-import torchvision_references.references.segmentation.RegSeg.presets as RS_presets
-import torchvision_references.references.segmentation.utils as utils
-from torchvision_references.references.segmentation.coco_utils import get_coco
+from models import get_model
+import datasets as datasets
+import references.segmentation.presets as presets
+import references.segmentation.RegSeg.presets as RS_presets
+import references.segmentation.utils as utils
+from references.segmentation.coco_utils import get_coco
 
 import wandb
 
