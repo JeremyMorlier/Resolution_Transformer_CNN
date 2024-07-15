@@ -12,8 +12,6 @@ from torch import nn
 from torch.utils.data.dataloader import default_collate
 from torchvision.transforms.functional import InterpolationMode
 
-from references.common import create_dir, is_main_process
-
 import references.classification.presets as presets
 from references.classification.transforms import get_mixup_cutmix
 import references.classification.utils as utils
@@ -316,11 +314,11 @@ def main(args):
     print(args)
 
     # Setup
-    if is_main_process() :
+    if utils.is_main_process() :
         # Change output directory and create it if necessary
-        create_dir(args.output_dir)
+        utils.create_dir(args.output_dir)
         args.output_dir = os.path.join(args.output_dir, args.name)
-        create_dir(args.output_dir)
+        utils.create_dir(args.output_dir)
 
         wandb.init(
             # set the wandb project where this run will be logged
@@ -491,23 +489,23 @@ def main(args):
 
     for epoch in range(args.start_epoch, args.epochs):
 
-        if is_main_process() :
+        if utils.is_main_process() :
             wandb.log({"epoch": epoch})
 
         if args.distributed:
             train_sampler.set_epoch(epoch)
         train_results = train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args, model_ema, scaler)
-        if is_main_process() :
+        if utils.is_main_process() :
             wandb.log(train_results)
         lr_scheduler.step()
         acc1_epoch, acc5_epoch = evaluate(model, criterion, data_loader_test, device=device)
 
-        if is_main_process() :
+        if utils.is_main_process() :
             wandb.log({"val global acc1":acc1_epoch, "val global acc5":acc5_epoch})
 
         if model_ema:
             acc1_ema, acc5_ema = evaluate(model_ema, criterion, data_loader_test, device=device, log_suffix="EMA")
-            if is_main_process() :
+            if utils.is_main_process() :
                 wandb.log({"ema acc1":acc1_ema, "ema acc5":acc5_ema})
         if args.output_dir:
             print("Saving model")
@@ -542,14 +540,14 @@ def main(args):
     # Last model evaluation
     if "vit" not in args.model :
         results, val_crop_resolutions, val_resize_resolution = resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), criterion, device, num_classes, args)
-        if is_main_process() :
+        if utils.is_main_process() :
             wandb.log({"acc_resolutions": results, "val_crop_resolutions": val_crop_resolutions, "val_resize_resolution": val_resize_resolution})
     total_time = time.time() - training_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Evaluation time {total_time_str}")
 
     # Close WandB
-    if is_main_process():
+    if utils.is_main_process():
         wandb.finish()
 
 

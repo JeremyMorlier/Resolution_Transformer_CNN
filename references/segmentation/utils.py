@@ -1,6 +1,7 @@
 import datetime
 import errno
 import os
+import stat
 import time
 from collections import defaultdict, deque
 
@@ -333,3 +334,8 @@ def reduce_across_processes(val):
     dist.barrier()
     dist.all_reduce(t)
     return t
+
+def create_dir(dir) :
+    if not os.path.isdir(dir) :
+        os.mkdir(dir)
+        os.chmod(dir, stat.S_IRWXU | stat.S_IRWXO)

@@ -204,6 +204,20 @@ def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler, devi
 
 
 def main(args):
+    if utils.is_main_process() :
+        utils.create_dir(args.output_dir)
+        args.output_dir = args.output_dir + "/" + args.name
+        utils.create_dir(args.output_dir)
+
+        wandb.init(
+            # set the wandb project where this run will be logged
+            project="resolution_CNN_ViT",
+            name=args.name,
+            tags=["SemanticSegmentation", "RegSeg", "torchvision_reference", "train_crop_" + str(args.scale_low_size), "val_crop_" + str(args.scale_high_size)],
+            
+            # track hyperparameters and run metadata
+            config=args
+        )
     if args.backend.lower() != "pil" and not args.use_v2:
         # TODO: Support tensor backend in V1?
         raise ValueError("Use --use-v2 if you want to use the tv_tensor or tensor backend.")
@@ -314,7 +328,6 @@ def main(args):
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
         confmat = evaluate(model, data_loader_test, device=device, num_classes=num_classes)
-        print(confmat)
         return
 
     best_mrIoU = 0.0
@@ -325,8 +338,8 @@ def main(args):
         train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler, device, epoch, args.print_freq, scaler)
         confmat = evaluate(model, data_loader_test, device=device, num_classes=num_classes, exclude_classes=args.exclude_classes)
         confmat.compute()
-        wandb.log({"reduced_iu": confmat.reduced_iu, "mIOU_reduced": confmat.mIOU_reduced})
-        print(confmat)
+        if utils.is_main_process() :
+            wandb.log({"reduced_iu": confmat.reduced_iu, "mIOU_reduced": confmat.mIOU_reduced})
         checkpoint = {
             "model": model_without_ddp.state_dict(),
             "optimizer": optimizer.state_dict(),
@@ -351,6 +364,9 @@ def main(args):
 
     # Evaluate the trained model at different resolutions
     resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), device, num_classes, args)
+
+    if utils.is_main_process() :
+        wandb.finish()
 
 
 def get_args_parser(add_help=True):
@@ -453,19 +469,6 @@ def get_name(args) :
 if __name__ == "__main__":
     args = get_args_parser().parse_args()
 
-    name = get_name(args)
-    create_dir(args.output_dir)
-    args.output_dir = args.output_dir + "/" + name
-    create_dir(args.output_dir)
+    args.name = get_name(args)
 
-    wandb.init(
-        # set the wandb project where this run will be logged
-        project="resolution_CNN_ViT",
-        name=name,
-        tags=["SemanticSegmentation", "RegSeg", "torchvision_reference", "train_crop_" + str(args.scale_low_size), "val_crop_" + str(args.scale_high_size)],
-        
-        # track hyperparameters and run metadata
-        config=args
-    )
     main(args)
-    wandb.finish()
