@@ -71,12 +71,12 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, arg
         acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
         batch_size = image.shape[0]
         running_loss += loss.detach().item()
-        #wandb.log({"train loss":loss.item(),"lr":optimizer.param_groups[0]["lr"], "train acc1":acc1.item(), "train acc5":acc5.item(), "train img/s":batch_size / (time.time() - start_time)})
+        
         metric_logger.update(loss=loss.item(), lr=optimizer.param_groups[0]["lr"])
         metric_logger.meters["acc1"].update(acc1.item(), n=batch_size)
         metric_logger.meters["acc5"].update(acc5.item(), n=batch_size)
         metric_logger.meters["img/s"].update(batch_size / (time.time() - start_time))
-    wandb.log({"running_loss": running_loss/(len(data_loader)*batch_size), "average acc1":metric_logger.acc1.avg, "average acc5":metric_logger.acc5.avg})
+    return {"running_loss": running_loss/(len(data_loader)*batch_size), "average acc1":metric_logger.acc1.avg, "average acc5":metric_logger.acc5.avg}
 
 
 def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix=""):
@@ -96,7 +96,7 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix="
             # FIXME need to take into account that the datasets
             # could have been padded in distributed setup
             batch_size = image.shape[0]
-            # wandb.log({"val loss":loss.item(), "val acc1":acc1.item(), "val acc5":acc5.item()})
+            
             metric_logger.update(loss=loss.item())
             metric_logger.meters["acc1"].update(acc1.item(), n=batch_size)
             metric_logger.meters["acc5"].update(acc5.item(), n=batch_size)
@@ -490,16 +490,25 @@ def main(args):
     best_acc1 = 0.0
 
     for epoch in range(args.start_epoch, args.epochs):
-        wandb.log({"epoch": epoch})
+
+        if is_main_process() :
+            wandb.log({"epoch": epoch})
+
         if args.distributed:
             train_sampler.set_epoch(epoch)
-        train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args, model_ema, scaler)
+        train_results = train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args, model_ema, scaler)
+        if is_main_process() :
+            wandb.log(train_results)
         lr_scheduler.step()
         acc1_epoch, acc5_epoch = evaluate(model, criterion, data_loader_test, device=device)
-        wandb.log({"val global acc1":acc1_epoch, "val global acc5":acc5_epoch})
+
+        if is_main_process() :
+            wandb.log({"val global acc1":acc1_epoch, "val global acc5":acc5_epoch})
+
         if model_ema:
             acc1_ema, acc5_ema = evaluate(model_ema, criterion, data_loader_test, device=device, log_suffix="EMA")
-            wandb.log({"ema acc1":acc1_ema, "ema acc5":acc5_ema})
+            if is_main_process() :
+                wandb.log({"ema acc1":acc1_ema, "ema acc5":acc5_ema})
         if args.output_dir:
             print("Saving model")
             checkpoint = {
@@ -533,7 +542,8 @@ def main(args):
     # Last model evaluation
     if "vit" not in args.model :
         results, val_crop_resolutions, val_resize_resolution = resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), criterion, device, num_classes, args)
-        wandb.log({"acc_resolutions": results, "val_crop_resolutions": val_crop_resolutions, "val_resize_resolution": val_resize_resolution})
+        if is_main_process() :
+            wandb.log({"acc_resolutions": results, "val_crop_resolutions": val_crop_resolutions, "val_resize_resolution": val_resize_resolution})
     total_time = time.time() - training_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Evaluation time {total_time_str}")
