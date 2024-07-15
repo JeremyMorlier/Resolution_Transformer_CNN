@@ -289,9 +289,23 @@ def init_distributed_mode(args):
         args.rank = int(os.environ["RANK"])
         args.world_size = int(os.environ["WORLD_SIZE"])
         args.gpu = int(os.environ["LOCAL_RANK"])
-    # elif "SLURM_PROCID" in os.environ:
-    #     args.rank = int(os.environ["SLURM_PROCID"])
-    #     args.gpu = args.rank % torch.cuda.device_count()
+    elif "SLURM_PROCID" in os.environ:
+        print("test")
+        args.rank = int(os.environ["SLURM_PROCID"])
+        args.gpu = args.rank % torch.cuda.device_count()
+        local_rank = int(os.environ['SLURM_LOCALID'])
+        args.world_size = int(os.environ['SLURM_NTASKS'])
+        cpus_per_task = int(os.environ['SLURM_CPUS_PER_TASK'])
+
+        # get node list from slurm
+        hostnames = hostlist.expand_hostlist(os.environ['SLURM_JOB_NODELIST'])
+        
+        # get IDs of reserved GPU
+        gpu_ids = os.environ['SLURM_STEP_GPUS'].split(",")
+        
+        # define MASTER_ADD & MASTER_PORT
+        os.environ['MASTER_ADDR'] = hostnames[0]
+        os.environ['MASTER_PORT'] = str(12345 + int(min(gpu_ids)))
     elif hasattr(args, "rank"):
         pass
     else:
@@ -300,16 +314,15 @@ def init_distributed_mode(args):
         return
 
     args.distributed = True
-
+    print(args.gpu)
     torch.cuda.set_device(args.gpu)
     args.dist_backend = "nccl"
-    print(f"| distributed init (rank {args.rank}): {args.dist_url}", flush=True)
+    print(f"| distributed init (rank {args.rank}): {args.dist_url} {args.gpu} {args.world_size}", flush=True)
     torch.distributed.init_process_group(
         backend=args.dist_backend, init_method=args.dist_url, world_size=args.world_size, rank=args.rank
     )
     torch.distributed.barrier()
     setup_for_distributed(args.rank == 0)
-
 
 def reduce_across_processes(val):
     if not is_dist_avail_and_initialized():
