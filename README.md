@@ -84,3 +84,17 @@ python3 distillation_sam.py --optim adamw --learning_rate 0.001 --weight_decay 0
 ```
 
 WANDB_DIR=../wandb/ WANDB_CACHE_DIR=../cache
+
+
+## Slurm Helper
+Use slurm_launcher.py as an helper to launch slurm scripts, useful if high number of runs necessary of small modifications
+```bash
+python3 slurm_launcher.py --job_name vitB_lengthscaling --output log/default/%j/logs.out --error log/default/%j/errors.err --constraint a100 --nodes 1 --ntasks 8 --gres gpu:4 --cpus_per_task 4 --qos qos_gpu-t3 --hint nomultithread --time 20:00:00 --account sxq@a100  \
+--script train_classification --model vit_custom --epochs 300 --batch-size 512 --opt adamw --lr 0.003 --wd 0.3 \
+--lr-scheduler cosineannealinglr --lr-warmup-method linear --lr-warmup-epochs 30 \
+--lr-warmup-decay 0.033 --label-smoothing 0.11 --mixup-alpha 0.2 --auto-augment ra \
+--clip-grad-norm 1 --ra-sampler --cutmix-alpha 1.0 --model-ema \
+--train-crop-size 224 --val-resize-size 232 --val-crop-size 224 \
+--patch_size 16 --num_layers 12 --num_heads 12 --hidden_dim 768 --mlp_dim 3072 --img_size 224 \
+--output-dir $WORK/results_resolution/ --data-path $DSDIR/imagenet
+ ```
