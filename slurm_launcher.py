@@ -170,7 +170,7 @@ def extract_script_args(args) :
     args_names = list(args_dict.keys())
 
     # unwanted arguments (slurm arguments)
-    excludes = ["job_name", "output", "error", "constraint", "nodes", "ntasks", "gres", "cpus_per_task", "time", "qos", "hint", "account"]
+    excludes = ["job_name", "output", "error", "constraint", "nodes", "ntasks", "gres", "cpus_per_task", "time", "qos", "hint", "account", "script"]
 
     command_argument = ""
 
@@ -205,6 +205,6 @@ if __name__ == "__main__" :
     slurm.add_cmd("export WANDB_MODE=offline")
 
     script_args = extract_script_args(args)
-    
+
     slurm.sbatch(f'srun python3 {args.script}.py', script_args)
     print(slurm)
