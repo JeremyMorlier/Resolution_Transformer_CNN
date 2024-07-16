@@ -52,7 +52,7 @@ RegSeg
 ```bash
 python3 train_semantic.py --model regseg_custom --regseg_name exp48_decoder26 --output-dir /nasbrain/j20morli/results/ \
 --dataset cityscapes --data-path /nasbrain/datasets/cityscapes/ --scale-low-size 400 --scale-high-size 1600 --random-crop-size 1024 --augmode randaug_reduced --exclude-classes 14 15 16 \
---epochs 1000 --momentum 0.9  --lr 0.05 -b 8 \
+--epochs 1000 --momentum 0.9  --lr 0.05 -b 8 --wd 0.0001\
 --lr-warmup-epochs 9 --lr-warmup-method linear --lr-warmup-start-factor 0.1 
 ```
 
@@ -61,7 +61,7 @@ WANDB_DIR=../wandb WANDB_CACHE_DIR=../cache/ python3  train_semantic.py --output
 --dataset cityscapes --data-path /nasbrain/datasets/ cityscapes/ --exclude-classes 14 15 16 \
 --scale-low-size 400 --scale-high-size 1600 --random-crop-size 1024 --augmode randaug_reduced \
 --model regseg_custom --regseg_name exp48_decoder26 --regseg_gw 16 --regseg_channels 32 24 64 128 320 \
---epochs 1000 --momentum 0.9  --lr 0.05 -b 8 --lr-warmup-epochs 9 --lr-warmup-method linear --lr-warmup-start-factor 0.1 
+--epochs 1000 --momentum 0.9  --lr 0.05 -b 8 --wd 0.0001 --lr-warmup-epochs 9 --lr-warmup-method linear --lr-warmup-start-factor 0.1 
 ```
 ## Segment Anything Distillation
 ```bash
