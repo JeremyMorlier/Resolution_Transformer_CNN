@@ -205,6 +205,6 @@ if __name__ == "__main__" :
     slurm.add_cmd("export WANDB_MODE=offline")
 
     script_args = extract_script_args(args)
-
-    slurm.sbatch('srun python3 {args.python}.py', script_args)
+    
+    slurm.sbatch(f'srun python3 {args.script}.py', script_args)
     print(slurm)
