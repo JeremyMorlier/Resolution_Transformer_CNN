@@ -19,6 +19,8 @@ import references.segmentation.RegSeg.presets as RS_presets
 import references.segmentation.utils as utils
 from references.segmentation.coco_utils import get_coco
 
+from references.common import get_name
+
 import wandb
 
 from args import get_segmentation_argsparse 
@@ -369,24 +371,6 @@ def main(args):
 
     if utils.is_main_process() :
         wandb.finish()
-    
-def get_name(args) :
-
-    name_channel = ""
-    if args.regseg_channels != None :
-        for element in args.regseg_channels :
-            name_channel += "_" + str(element)
-    else :
-        name_channel = "None"
-    
-    if "resnet" in args.model :
-        name = args.model + "_" + str(args.train_crop_size) + "_" + str(args.val_crop_size)  + "_" + str(args.val_resize_size) + "_" + str(args.first_conv_resize) + name_channel
-    elif "vit" in args.model:
-        name = args.model + "_" + str(args.patch_size) + "_" + str(args.num_layers) + "_" + str(args.num_heads) + "_" + str(args.hidden_dim) + "_" + str(args.mlp_dim) + "_" + str(args.img_size)
-    if "regseg" in args.model :
-        name = args.model + "_" + str(args.scale_low_size) + "_" + str(args.scale_high_size)  + "_" + str(args.random_crop_size) + "_" + str(args.first_conv_resize) + "_" + str(args.regseg_gw) + "_" + name_channel
-
-    return name
 
 if __name__ == "__main__":
     args, unknown_args = = get_segmentation_argsparse().parse_known_args()

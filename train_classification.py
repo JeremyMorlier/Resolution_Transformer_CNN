@@ -16,6 +16,7 @@ import references.classification.presets as presets
 from references.classification.transforms import get_mixup_cutmix
 import references.classification.utils as utils
 from references.classification.sampler import RASampler
+from references.common import get_name
 from models import get_model
 
 import wandb
@@ -309,9 +310,6 @@ def load_data(traindir, valdir, args):
 
 
 def main(args):
-    if args.output_dir:
-        utils.mkdir(args.output_dir)
-
     utils.init_distributed_mode(args)
     print(args)
 
@@ -551,22 +549,6 @@ def main(args):
     # Close WandB
     if utils.is_main_process():
         wandb.finish()
-
-def get_name(args) :
-
-    name_channel = ""
-    if args.channels != None :
-        for element in args.channels :
-            name_channel += "_" + str(element)
-    else :
-        name_channel = "_None"
-    
-    if "resnet" in args.model :
-        name = args.model + "_" + str(args.train_crop_size) + "_" + str(args.val_crop_size)  + "_" + str(args.val_resize_size) + "_" + str(args.first_conv_resize) + name_channel
-    elif "vit" in args.model:
-        name = args.model + "_" + str(args.patch_size) + "_" + str(args.num_layers) + "_" + str(args.num_heads) + "_" + str(args.hidden_dim) + "_" + str(args.mlp_dim) + "_" + str(args.img_size)
-
-    return name
 
 if __name__ == "__main__":
     args, unknown_args = get_classification_argsparse().parse_known_args()

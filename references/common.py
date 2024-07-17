@@ -81,3 +81,33 @@ def init_distributed_mode(args):
     )
     torch.distributed.barrier()
     setup_for_distributed(args.rank == 0)
+
+def create_dir(dir) :
+    if not os.path.isdir(dir) :
+        os.mkdir(dir)
+        os.chmod(dir, stat.S_IRWXU | stat.S_IRWXO)
+
+def get_name(args) :
+
+    name_channel = ""
+
+    # Classification 
+    if hasattr(args, "channels") :
+        if args.channels != None :
+            for element in args.channels :
+                name_channel += "_" + str(element)
+    elif hasattr(args, "regseg_channels") :
+        if args.regseg_channels != None :
+            for element in args.regseg_channels :
+                name_channel += "_" + str(element)
+    else :
+        name_channel = "_None"
+    
+    if "resnet" in args.model :
+        name = args.model + "_" + str(args.train_crop_size) + "_" + str(args.val_crop_size)  + "_" + str(args.val_resize_size) + "_" + str(args.first_conv_resize) + name_channel
+    elif "vit" in args.model:
+        name = args.model + "_" + str(args.patch_size) + "_" + str(args.num_layers) + "_" + str(args.num_heads) + "_" + str(args.hidden_dim) + "_" + str(args.mlp_dim) + "_" + str(args.img_size)
+    elif "regseg" in args.model :
+        name = args.model + "_" + str(args.scale_low_size) + "_" + str(args.scale_high_size)  + "_" + str(args.random_crop_size) + "_" + str(args.first_conv_resize) + "_" + str(args.regseg_gw) + "_" + name_channel
+    
+    return name

@@ -62,6 +62,9 @@ def common_args_parser(parser) :
         action="store_true",
     )
 
+    # Name of the wandb logging and result folder
+    parser.add_argument("--name", default="", type=str, help="Name of the experiment (used in WandB and Checkpoint)")
+
     # Resolution scaling specific arguments
     parser.add_argument("--first_conv_resize", default=0, type=int, help="if different than 0 rescale the input activations after the first convolution")
 

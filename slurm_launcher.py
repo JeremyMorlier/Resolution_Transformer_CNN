@@ -1,8 +1,9 @@
+import os
 import argparse
 
 from simple_slurm import Slurm
 from args import get_slurm_scheduler_argsparse
-
+from references.common import create_dir, get_name
 def extract_script_args(args) :
 
     args_dict = args.__dict__
@@ -49,6 +50,19 @@ if __name__ == "__main__" :
     slurm.add_cmd("export WANDB_MODE=offline")
 
     script_args = extract_script_args(args)
+    
+    # Add resume
+    create_dir(args.output_dir)
+    args.name = get_name(args)
+    args.output_dir = os.path.join(args.output_dir, args.name)
+    create_dir(args.output_dir)
 
-    slurm.sbatch(f'srun python3 {args.script}.py', script_args)
-    print(slurm)
+    script_args = extract_script_args(args)
+
+    slurm.sbatch(f'srun python3 {args.script}.py', script_args, f" --resume {args.output_dir}/checkpoint.pth")
+
+    # Save Slurm script
+    script = slurm.script()
+    with open(args.output_dir + "slurm_script.sh", "w") as file :
+        file.writelines(script)
+    print(script)
