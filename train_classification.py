@@ -570,7 +570,7 @@ def get_name(args) :
 
 if __name__ == "__main__":
     args, unknown_args = get_classification_argsparse().parse_known_args()
-
+    print(args)
     args.name = get_name(args)
 
     main(args)
