@@ -63,6 +63,6 @@ if __name__ == "__main__" :
 
     # Save Slurm script
     script = slurm.script()
-    with open(args.output_dir + "slurm_script.sh", "w") as file :
+    with open(args.output_dir + "/slurm_script.sh", "w") as file :
         file.writelines(script)
     print(script)
