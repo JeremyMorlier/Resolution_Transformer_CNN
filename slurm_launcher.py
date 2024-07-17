@@ -10,7 +10,7 @@ def extract_script_args(args) :
     args_names = list(args_dict.keys())
 
     # unwanted arguments (slurm arguments)
-    excludes = ["job_name", "output", "error", "constraint", "nodes", "ntasks", "gres", "cpus_per_task", "time", "qos", "hint", "account", "script"]
+    excludes = ["add_resume", "job_name", "output", "error", "constraint", "nodes", "ntasks", "gres", "cpus_per_task", "time", "qos", "hint", "account", "script"]
 
     command_argument = ""
 
@@ -59,7 +59,10 @@ if __name__ == "__main__" :
 
     script_args = extract_script_args(args)
 
-    slurm.sbatch(f'srun python3 {args.script}.py', script_args, f" --resume {args.output_dir}/checkpoint.pth")
+    if args.add_resume :
+        slurm.sbatch(f'srun python3 {args.script}.py', script_args, f" --resume {args.output_dir}/checkpoint.pth")
+    else :
+        slurm.sbatch(f'srun python3 {args.script}.py', script_args)
 
     # Save Slurm script
     script = slurm.script()

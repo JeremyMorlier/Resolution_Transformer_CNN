@@ -16,7 +16,7 @@ def slurm_args_parser(parser) :
     parser.add_argument("--account", type=str, default="sxq@v100", help="maximum time of script")
 
     parser.add_argument("--script", type=str, default="train_classification.py", help="python script to launch")
-
+    parser.add_argument("--add_resume", action="store_true", help="Add Resume to existing run in file")
 def common_args_parser(parser) :
     parser.add_argument("--data_path", default="/datasets01/imagenet_full_size/061417/", type=str, help="dataset path")
 
