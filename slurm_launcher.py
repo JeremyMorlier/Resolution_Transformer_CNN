@@ -21,6 +21,11 @@ def extract_script_args(args) :
                 if type(argument) == bool :
                     if argument :
                         command_argument += "--" + argument_name + " "
+                elif type(argument) == list :
+                    list_string = ""
+                    for element in argument :
+                        list_string += " " + str(element)
+                    command_argument += "--" + argument_name + list_string + " "
                 else :
                     command_argument += "--" + argument_name + " " + str(argument) + " "
 
