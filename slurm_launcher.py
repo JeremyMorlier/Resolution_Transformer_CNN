@@ -32,7 +32,7 @@ def extract_script_args(args) :
     return command_argument
 
 if __name__ == "__main__" :
-    args = get_slurm_scheduler_argsparse().parse_args()
+    args, unknown_args = get_slurm_scheduler_argsparse().parse_known_args()
 
     # Slurm Sbatch setup
     slurm = Slurm(job_name=args.job_name,
