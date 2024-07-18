@@ -123,13 +123,10 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix="
     print(f"{header} Acc@1 {metric_logger.acc1.global_avg:.3f} Acc@5 {metric_logger.acc5.global_avg:.3f}")
     return metric_logger.acc1.global_avg, metric_logger.acc5.global_avg
 
-def resolution_evaluate(model_state_dict, criterion, device, num_classes, args) :
+def resolution_evaluate(model_state_dict, criterion, device, num_classes, val_crop_resolutions, val_resize_resolutions,  args) :
     from torchvision.transforms import v2
     from torchvision.datasets import ImageNet
     from torch.utils.data import DataLoader
-
-    val_crop_resolutions = [112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304, 320, 336, 352]
-    val_resize_resolutions = [120, 136, 152, 168, 184, 200, 216, 232, 248, 264, 280, 296, 312, 328, 344, 360]
 
     all_results = []
 
@@ -526,8 +523,8 @@ def main(args):
                 checkpoint["model_ema"] = model_ema.state_dict()
             if scaler:
                 checkpoint["scaler"] = scaler.state_dict()
-            if is_main_process() :
-                checkpoint["wandb_run_id"] = run_id
+            if utils.is_main_process() :
+                checkpoint["wandb_run_id"] = wandb.run.id
             if acc1_epoch >= best_acc1 :
                 best_acc1 = acc1_epoch
                 utils.save_on_master(checkpoint, os.path.join(args.output_dir, f"model_best.pth"))
@@ -543,11 +540,18 @@ def main(args):
     total_time = training_time - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Training time {total_time_str}")
+
     # Last model evaluation
-    if "vit" not in args.model :
-        results, val_crop_resolutions, val_resize_resolution = resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), criterion, device, num_classes, args)
-        if utils.is_main_process() :
-            wandb.log({"acc_resolutions": results, "val_crop_resolutions": val_crop_resolutions, "val_resize_resolution": val_resize_resolution})
+    if utils.is_main_process() :
+        if "vit" not in args.model :
+            val_crop_resolutions = [112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304, 320, 336, 352]
+        else :
+            val_crop_resolutions = [args.img_size]
+        val_resize_resolutions = [120, 136, 152, 168, 184, 200, 216, 232, 248, 264, 280, 296, 312, 328, 344, 360]
+        results = resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), criterion, device, num_classes, val_crop_resolutions, val_resize_resolutions,  args)
+        
+        wandb.log({"acc_resolutions": results, "val_crop_resolutions": val_crop_resolutions, "val_resize_resolution": val_resize_resolutions})
+
     total_time = time.time() - training_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Evaluation time {total_time_str}")
