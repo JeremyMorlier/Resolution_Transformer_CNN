@@ -373,7 +373,7 @@ def main(args):
         wandb.finish()
 
 if __name__ == "__main__":
-    args, unknown_args = = get_segmentation_argsparse().parse_known_args()
+    args, unknown_args = get_segmentation_argsparse().parse_known_args()
 
     args.name = get_name(args)
 
