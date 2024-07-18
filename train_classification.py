@@ -320,15 +320,19 @@ def main(args):
         args.output_dir = os.path.join(args.output_dir, args.name)
         utils.create_dir(args.output_dir)
 
+        if args.resume:
+            checkpoint = torch.load(args.resume, map_location="cpu")
+            wandb_run_id = checkpoint["wandb_run_id"]
         wandb.init(
             # set the wandb project where this run will be logged
             project="resolution_CNN_ViT",
             name=args.name,
             tags=[args.model , "torchvision_reference", "train_crop_" + str(args.train_crop_size), "val_crop_" + str(args.val_crop_size)],
-            
+            id = wandb_run_id if args.resume else None,
             # track hyperparameters and run metadata
             config=args
         )
+        run_id = wandb.run.id
 
     device = torch.device(args.device)
 
@@ -515,13 +519,15 @@ def main(args):
                 "lr_scheduler": lr_scheduler.state_dict(),
                 "epoch": epoch,
                 "args": args,
-                "acc1_epoch" : acc1_epoch,
-                "acc5_epoch" : acc5_epoch,
+                "acc1_epoch": acc1_epoch,
+                "acc5_epoch": acc5_epoch,
             }
             if model_ema:
                 checkpoint["model_ema"] = model_ema.state_dict()
             if scaler:
                 checkpoint["scaler"] = scaler.state_dict()
+            if is_main_process() :
+                checkpoint["wandb_run_id"] = run_id
             if acc1_epoch >= best_acc1 :
                 best_acc1 = acc1_epoch
                 utils.save_on_master(checkpoint, os.path.join(args.output_dir, f"model_best.pth"))
