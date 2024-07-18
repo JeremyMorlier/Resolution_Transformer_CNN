@@ -291,13 +291,14 @@ def init_distributed_mode(args):
         args.world_size = int(os.environ["WORLD_SIZE"])
         args.gpu = int(os.environ["LOCAL_RANK"])
     elif "SLURM_PROCID" in os.environ:
-        print("test")
+        print("Using slurm")
         args.rank = int(os.environ["SLURM_PROCID"])
         args.gpu = args.rank % torch.cuda.device_count()
-        local_rank = int(os.environ['SLURM_LOCALID'])
         args.world_size = int(os.environ['SLURM_NTASKS'])
-        cpus_per_task = int(os.environ['SLURM_CPUS_PER_TASK'])
+        args.slurm_jobid = int(os.environ["SLURM_JOB_ID"])
 
+        local_rank = int(os.environ['SLURM_LOCALID'])
+        cpus_per_task = int(os.environ['SLURM_CPUS_PER_TASK'])
         # get node list from slurm
         hostnames = hostlist.expand_hostlist(os.environ['SLURM_JOB_NODELIST'])
         

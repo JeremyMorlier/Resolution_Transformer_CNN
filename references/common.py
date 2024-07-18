@@ -61,9 +61,10 @@ def init_distributed_mode(args):
         args.world_size = int(os.environ["WORLD_SIZE"])
         args.gpu = int(os.environ["LOCAL_RANK"])
     elif "SLURM_PROCID" in os.environ:
-        print("test")
+        print("Using slurm")
         args.rank = int(os.environ["SLURM_PROCID"])
         args.gpu = args.rank % torch.cuda.device_count()
+        args.slurm_jobid = int(os.environ["SLURM_JOB_ID"])
     elif hasattr(args, "rank"):
         pass
     else:
