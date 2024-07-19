@@ -2,6 +2,7 @@ import datetime
 import os, stat
 import time
 import warnings
+import wandb
 
 import torch
 import torch.utils.data
@@ -19,19 +20,21 @@ from references.classification.sampler import RASampler
 from references.common import get_name
 from models import get_model
 
-import wandb
-
 from args import get_classification_argsparse
+from memory_flops import get_memory_flops
 
 def get_param_model(args, num_classes) :
     if args.model == "resnet50_resize" :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes, first_conv_resize=args.first_conv_resize, channels=args.channels, depths=args.depths)
+        memory, flops = get_memory_flops(model, args.val_crop_size, args)
     elif args.model == "vit_custom" :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes, patch_size=args.patch_size, num_layers=args.num_layers, num_heads=args.num_heads, hidden_dim=args.hidden_dim, mlp_dim=args.mlp_dim, image_size=args.img_size)
+        memory, flops = get_memory_flops(model, args.val_crop_size, args)
     else :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes)
+        memory, flops = get_memory_flops(model, args.val_crop_size, args)
     
-    return model
+    return model, memory, flops
 
 def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args, model_ema=None, scaler=None):
     model.train()
@@ -368,8 +371,13 @@ def main(args):
     )
     print(num_classes)
     print("Creating model")
-    model = get_param_model(args, num_classes=num_classes)
+    model, memory, flops = get_param_model(args, num_classes=num_classes)
     model.to(device)
+
+    if utils.is_main_process() :
+        print(memory, flops)
+        wandb.log({"memory":memory, "flops": flops[0]})
+        wandb.log({"opss":flops})
 
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
