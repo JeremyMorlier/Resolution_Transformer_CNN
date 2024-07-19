@@ -54,18 +54,17 @@ if __name__ == "__main__" :
     # Add resume
     create_dir(args.output_dir)
     args.name = get_name(args)
-    args.output_dir = os.path.join(args.output_dir, args.name)
-    create_dir(args.output_dir)
+    output_dir = os.path.join(args.output_dir, args.name)
+    create_dir(output_dir)
 
     script_args = extract_script_args(args)
 
-    if args.add_resume :
-        slurm.sbatch(f'srun python3 {args.script}.py', script_args, f" --resume {args.output_dir}/checkpoint.pth")
-    else :
-        slurm.sbatch(f'srun python3 {args.script}.py', script_args)
-
+    slurm.sbatch(f'srun python3 {args.script}.py', script_args)
+    
     # Save Slurm script
     script = slurm.script()
+    if args.add_resume :
+        script += f" --resume {output_dir}/checkpoint.pth"
     with open(args.output_dir + "/slurm_script.sh", "w") as file :
         file.writelines(script)
     print(script)
