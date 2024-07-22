@@ -201,7 +201,6 @@ def get_segmentation_argsparse(add_help=True) :
 
 def get_slurm_scheduler_argsparse(add_help=True) :
     parser = argparse.ArgumentParser(description="Slurm launcher, facilitates the deploiement of this repo training scripts to slurm environments", add_help=add_help)
-    
 
     common_args_parser(parser)
     slurm_args_parser(parser)

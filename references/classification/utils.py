@@ -85,10 +85,11 @@ def init_distributed_mode(args):
         
         # get IDs of reserved GPU
         gpu_ids = os.environ['SLURM_STEP_GPUS'].split(",")
+        print(gpu_ids)
         
         # define MASTER_ADD & MASTER_PORT
         os.environ['MASTER_ADDR'] = hostnames[0]
-        os.environ['MASTER_PORT'] = str(12345 + int(min(gpu_ids)))
+        os.environ['MASTER_PORT'] = str(10000 + args.slurm_jobid % 20000)
     elif hasattr(args, "rank"):
         pass
     else:

@@ -214,30 +214,31 @@ def main(args):
         utils.create_dir(args.output_dir)
         args.output_dir = os.path.join(args.output_dir, args.name)
         utils.create_dir(args.output_dir)
+
         wandb_run_id = None
+
         if args.resume:
             checkpoint = torch.load(args.resume, map_location="cpu")
             if "wandb_run_id" in checkpoint :
                 wandb_run_id = checkpoint["wandb_run_id"]
+
         wandb.init(
             # set the wandb project where this run will be logged
             project="resolution_CNN_ViT",
             name=args.name,
-            tags=[args.model , "torchvision_reference", "train_crop_" + str(args.train_crop_size), "val_crop_" + str(args.val_crop_size)],
+            tags=[args.model],
             id = wandb_run_id,
             # track hyperparameters and run metadata
             config=args
         )
-        run_id = wandb.run.id
         
+        run_id = wandb.run.id
+
     if args.backend.lower() != "pil" and not args.use_v2:
         # TODO: Support tensor backend in V1?
         raise ValueError("Use --use_v2 if you want to use the tv_tensor or tensor backend.")
     if args.use_v2 and args.dataset != "coco":
         raise ValueError("v2 is only support supported for coco dataset for now.")
-
-    if args.output_dir:
-        utils.mkdir(args.output_dir)
 
     utils.init_distributed_mode(args)
     print(args)
