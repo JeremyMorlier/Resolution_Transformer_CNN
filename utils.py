@@ -10,6 +10,7 @@ def args_parser(add_help=True):
 
 def pth_reader(path) :
     torch_dict = torch.load(path)
+    print(torch_dict)
     print(torch_dict.keys())
 
 if __name__ == "__main" :
