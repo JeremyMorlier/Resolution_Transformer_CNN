@@ -208,26 +208,28 @@ def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler, devi
 
 
 def main(args):
+    # Setup
     if utils.is_main_process() :
         # Change output directory and create it if necessary
         utils.create_dir(args.output_dir)
         args.output_dir = os.path.join(args.output_dir, args.name)
         utils.create_dir(args.output_dir)
-
+        wandb_run_id = None
         if args.resume:
             checkpoint = torch.load(args.resume, map_location="cpu")
-            wandb_run_id = checkpoint["wandb_run_id"]
-
+            if "wandb_run_id" in checkpoint :
+                wandb_run_id = checkpoint["wandb_run_id"]
         wandb.init(
             # set the wandb project where this run will be logged
             project="resolution_CNN_ViT",
             name=args.name,
-            tags=["SemanticSegmentation", "RegSeg", "torchvision_reference", "train_crop_" + str(args.scale_low_size), "val_crop_" + str(args.scale_high_size)],
-            id = wandb_run_id if args.resume else None,
+            tags=[args.model , "torchvision_reference", "train_crop_" + str(args.train_crop_size), "val_crop_" + str(args.val_crop_size)],
+            id = wandb_run_id,
             # track hyperparameters and run metadata
             config=args
         )
         run_id = wandb.run.id
+        
     if args.backend.lower() != "pil" and not args.use_v2:
         # TODO: Support tensor backend in V1?
         raise ValueError("Use --use_v2 if you want to use the tv_tensor or tensor backend.")
