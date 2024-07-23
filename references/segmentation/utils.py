@@ -5,10 +5,9 @@ import stat
 import time
 from collections import defaultdict, deque
 
+import hostlist
 import torch
 import torch.distributed as dist
-
-from random import randint
 
 class SmoothedValue:
     """Track a series of values and provide access to smoothed values over a

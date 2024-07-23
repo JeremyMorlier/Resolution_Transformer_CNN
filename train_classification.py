@@ -377,8 +377,8 @@ def main(args):
 
     if utils.is_main_process() :
         print(memory, flops)
-        wandb.log({"memory":memory, "flops": flops[0]})
-        wandb.log({"opss":flops})
+        wandb.log({"memory":memory})
+        wandb.log({"model_ops":flops})
 
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
