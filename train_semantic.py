@@ -208,6 +208,10 @@ def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler, devi
 
 
 def main(args):
+
+    utils.init_distributed_mode(args)
+    print(args)
+    
     # Setup
     if utils.is_main_process() :
         # Change output directory and create it if necessary
@@ -239,9 +243,6 @@ def main(args):
         raise ValueError("Use --use_v2 if you want to use the tv_tensor or tensor backend.")
     if args.use_v2 and args.dataset != "coco":
         raise ValueError("v2 is only support supported for coco dataset for now.")
-
-    utils.init_distributed_mode(args)
-    print(args)
 
     device = torch.device(args.device)
 
