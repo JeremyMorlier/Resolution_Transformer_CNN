@@ -65,6 +65,6 @@ if __name__ == "__main__" :
     script = slurm.script()
     if args.add_resume :
         script += f" --resume {output_dir}/checkpoint.pth"
-    with open(args.output_dir + "/slurm_script.sh", "w") as file :
+    with open(output_dir + "/slurm_script.sh", "w") as file :
         file.writelines(script)
     print(script)
