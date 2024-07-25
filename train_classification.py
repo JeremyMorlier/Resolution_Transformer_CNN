@@ -322,6 +322,7 @@ def main(args):
         wandb_run_id = None
         if args.resume:
             checkpoint = torch.load(args.resume, map_location="cpu")
+            print(checkpoint.keys())
             if "wandb_run_id" in checkpoint :
                 wandb_run_id = checkpoint["wandb_run_id"]
             print(wandb_run_id)
@@ -330,6 +331,7 @@ def main(args):
             project="resolution_CNN_ViT",
             name=args.name,
             tags=[args.model , "torchvision_reference", "train_crop_" + str(args.train_crop_size), "val_crop_" + str(args.val_crop_size)],
+            resume="allow",
             id = wandb_run_id,
             # track hyperparameters and run metadata
             config=args

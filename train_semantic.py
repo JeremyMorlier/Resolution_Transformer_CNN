@@ -231,6 +231,7 @@ def main(args):
             project="resolution_CNN_ViT",
             name=args.name,
             tags=[args.model],
+            resume="allow",
             id = wandb_run_id,
             # track hyperparameters and run metadata
             config=args
