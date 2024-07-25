@@ -324,6 +324,7 @@ def main(args):
             checkpoint = torch.load(args.resume, map_location="cpu")
             if "wandb_run_id" in checkpoint :
                 wandb_run_id = checkpoint["wandb_run_id"]
+            print(wandb_run_id)
         wandb.init(
             # set the wandb project where this run will be logged
             project="resolution_CNN_ViT",
