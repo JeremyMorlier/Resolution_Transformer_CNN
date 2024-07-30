@@ -1036,5 +1036,5 @@ def resnet50_resize(*, weights: Optional[ResNet50_Weights] = None, progress: boo
         channels = channels
     else :
         channels = [64, 64, 128, 256, 512]
-    print(channels)
+
     return _resnet(Bottleneck, depths, weights, progress, channels=channels, **kwargs)
