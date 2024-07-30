@@ -2,8 +2,8 @@ import datetime
 import os, stat
 import time
 import warnings
-import wandb
 
+from logger import Logger
 import torch
 import torch.utils.data
 import torchvision
@@ -315,28 +315,29 @@ def main(args):
 
     # Setup
     if utils.is_main_process() :
+        
         # Change output directory and create it if necessary
         utils.create_dir(args.output_dir)
         args.output_dir = os.path.join(args.output_dir, args.name)
         utils.create_dir(args.output_dir)
+
         wandb_run_id = None
+
         if args.resume:
             checkpoint = torch.load(args.resume, map_location="cpu")
-            print(checkpoint.keys())
             if "wandb_run_id" in checkpoint :
                 wandb_run_id = checkpoint["wandb_run_id"]
             print(wandb_run_id)
-        wandb.init(
-            # set the wandb project where this run will be logged
-            project="resolution_CNN_ViT",
-            name=args.name,
-            tags=[args.model , "torchvision_reference", "train_crop_" + str(args.train_crop_size), "val_crop_" + str(args.val_crop_size)],
-            resume="allow",
-            id = wandb_run_id,
-            # track hyperparameters and run metadata
-            config=args
-        )
-        run_id = wandb.run.id
+        
+        logger = Logger(project_name="resolution_CNN_ViT",
+                        run_name=args.name,
+                        tags=[args.model , "torchvision_reference", "train_crop_" + str(args.train_crop_size), "val_crop_" + str(args.val_crop_size)],
+                        resume=True,
+                        id=wandb_run_id,
+                        args=args,
+                        mode=args.logger,
+                        log_dir=args.output_dir)
+        run_id = logger.id
 
     device = torch.device(args.device)
 
@@ -380,8 +381,8 @@ def main(args):
 
     if utils.is_main_process() :
         print(memory, flops)
-        wandb.log({"memory":memory})
-        wandb.log({"model_ops":flops})
+        logger.log({"memory":memory})
+        logger.log({"model_ops":flops})
 
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -503,23 +504,23 @@ def main(args):
     for epoch in range(args.start_epoch, args.epochs):
 
         if utils.is_main_process() :
-            wandb.log({"epoch": epoch})
+            logger.log({"epoch": epoch})
 
         if args.distributed:
             train_sampler.set_epoch(epoch)
         train_results = train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args, model_ema, scaler)
         if utils.is_main_process() :
-            wandb.log(train_results)
+            logger.log(train_results)
         lr_scheduler.step()
         acc1_epoch, acc5_epoch = evaluate(model, criterion, data_loader_test, device=device)
 
         if utils.is_main_process() :
-            wandb.log({"val global acc1":acc1_epoch, "val global acc5":acc5_epoch})
+            logger.log({"val global acc1":acc1_epoch, "val global acc5":acc5_epoch})
 
         if model_ema:
             acc1_ema, acc5_ema = evaluate(model_ema, criterion, data_loader_test, device=device, log_suffix="EMA")
             if utils.is_main_process() :
-                wandb.log({"ema acc1":acc1_ema, "ema acc5":acc5_ema})
+                logger.log({"ema acc1":acc1_ema, "ema acc5":acc5_ema})
         if args.output_dir:
             print("Saving model")
             checkpoint = {
@@ -536,7 +537,7 @@ def main(args):
             if scaler:
                 checkpoint["scaler"] = scaler.state_dict()
             if utils.is_main_process() :
-                checkpoint["wandb_run_id"] = wandb.run.id
+                checkpoint["wandb_run_id"] = logger.id
             if acc1_epoch >= best_acc1 :
                 best_acc1 = acc1_epoch
                 utils.save_on_master(checkpoint, os.path.join(args.output_dir, f"model_best.pth"))
@@ -562,15 +563,15 @@ def main(args):
         val_resize_resolutions = [120, 136, 152, 168, 184, 200, 216, 232, 248, 264, 280, 296, 312, 328, 344, 360]
         results = resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), criterion, device, num_classes, val_crop_resolutions, val_resize_resolutions,  args)
         
-        wandb.log({"acc_resolutions": results, "val_crop_resolutions": val_crop_resolutions, "val_resize_resolution": val_resize_resolutions})
+        logger.log({"acc_resolutions": results, "val_crop_resolutions": val_crop_resolutions, "val_resize_resolution": val_resize_resolutions})
 
     total_time = time.time() - training_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Evaluation time {total_time_str}")
 
-    # Close WandB
+    # Close Logger
     if utils.is_main_process():
-        wandb.finish()
+        logger.finish()
 
 if __name__ == "__main__":
     args, unknown_args = get_classification_argsparse().parse_known_args()

@@ -21,7 +21,7 @@ from references.segmentation.coco_utils import get_coco
 
 from references.common import get_name
 
-import wandb
+from logger import Logger
 
 from args import get_segmentation_argsparse 
 
@@ -211,9 +211,10 @@ def main(args):
 
     utils.init_distributed_mode(args)
     print(args)
-    
+
     # Setup
     if utils.is_main_process() :
+
         # Change output directory and create it if necessary
         utils.create_dir(args.output_dir)
         args.output_dir = os.path.join(args.output_dir, args.name)
@@ -225,19 +226,18 @@ def main(args):
             checkpoint = torch.load(args.resume, map_location="cpu")
             if "wandb_run_id" in checkpoint :
                 wandb_run_id = checkpoint["wandb_run_id"]
-
-        wandb.init(
-            # set the wandb project where this run will be logged
-            project="resolution_CNN_ViT",
-            name=args.name,
-            tags=[args.model],
-            resume="allow",
-            id = wandb_run_id,
-            # track hyperparameters and run metadata
-            config=args
-        )
+            print(wandb_run_id)
         
-        run_id = wandb.run.id
+        logger = Logger(project_name="resolution_CNN_ViT",
+                        run_name=args.name,
+                        tags=[args.model],
+                        resume=True,
+                        id=wandb_run_id,
+                        args=args,
+                        mode=args.logger,
+                        log_dir=args.output_dir)
+
+        run_id = logger.id
 
     if args.backend.lower() != "pil" and not args.use_v2:
         # TODO: Support tensor backend in V1?
@@ -354,7 +354,7 @@ def main(args):
         confmat = evaluate(model, data_loader_test, device=device, num_classes=num_classes, exclude_classes=args.exclude_classes)
         confmat.compute()
         if utils.is_main_process() :
-            wandb.log({"reduced_iu": confmat.reduced_iu, "mIOU_reduced": confmat.mIOU_reduced})
+            logger.log({"reduced_iu": confmat.reduced_iu, "mIOU_reduced": confmat.mIOU_reduced})
         checkpoint = {
             "model": model_without_ddp.state_dict(),
             "optimizer": optimizer.state_dict(),
@@ -366,7 +366,7 @@ def main(args):
         if args.amp:
             checkpoint["scaler"] = scaler.state_dict()
         if utils.is_main_process() :
-            checkpoint["wandb_run_id"] = wandb.run.id
+            checkpoint["wandb_run_id"] = logger.id
         if confmat.mIOU_reduced >= best_mrIoU :
             best_mrIoU = confmat.mIOU_reduced
             utils.save_on_master(checkpoint, os.path.join(args.output_dir, f"model_best.pth"))
@@ -383,7 +383,7 @@ def main(args):
     resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), device, num_classes, args)
 
     if utils.is_main_process() :
-        wandb.finish()
+        logger.finish()
 
 if __name__ == "__main__":
     args, unknown_args = get_segmentation_argsparse().parse_known_args()

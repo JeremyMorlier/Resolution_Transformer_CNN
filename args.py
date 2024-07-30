@@ -62,6 +62,9 @@ def common_args_parser(parser) :
         action="store_true",
     )
 
+    # Type of Logger
+    parser.add_argument("--logger", default="txt", type=str, help="Type of logger (wandb or json)")
+
     # Name of the wandb logging and result folder
     parser.add_argument("--name", default="", type=str, help="Name of the experiment (used in WandB and Checkpoint)")
 
