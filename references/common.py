@@ -1,4 +1,6 @@
 import os
+import sys
+import signal
 import stat
 
 import torch
@@ -112,3 +114,16 @@ def get_name(args) :
         name = args.model + "_" + str(args.scale_low_size) + "_" + str(args.scale_high_size)  + "_" + str(args.random_crop_size) + "_" + str(args.first_conv_resize) + "_" + str(args.regseg_gw) + "_" + name_channel
     
     return name
+
+def sig_handler(signum, frame):
+    prod_id = int(os.environ['SLURM_PROCID'])
+    if prod_id == 0:
+        os.system('scontrol requeue ' + os.environ['SLURM_JOB_ID'])
+    sys.exit(-1)
+
+def init_signal_handler(signal_id):
+    """
+    Handle signals sent by SLURM for time limit.
+    """
+    if signal_id != None :
+        signal.signal(signal.getattr(signal_id), sig_handler)

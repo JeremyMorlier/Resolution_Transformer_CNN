@@ -65,6 +65,9 @@ def common_args_parser(parser) :
     # Type of Logger
     parser.add_argument("--logger", default="txt", type=str, help="Type of logger (wandb or json)")
 
+    # signal script killer
+    parser.add_argument("--signal_id", default=None, type=str, help="signal to kill python process")
+    
     # Name of the wandb logging and result folder
     parser.add_argument("--name", default="", type=str, help="Name of the experiment (used in WandB and Checkpoint)")
 

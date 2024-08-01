@@ -17,7 +17,7 @@ import references.classification.presets as presets
 from references.classification.transforms import get_mixup_cutmix
 import references.classification.utils as utils
 from references.classification.sampler import RASampler
-from references.common import get_name
+from references.common import get_name, init_signal_handler
 from models import get_model
 
 from args import get_classification_argsparse
@@ -312,7 +312,8 @@ def load_data(traindir, valdir, args):
 def main(args):
     utils.init_distributed_mode(args)
     print(args)
-
+    
+    init_signal_handler(args.signal_id)
     # Setup
     if utils.is_main_process() :
         

@@ -4,7 +4,8 @@ import argparse
 from simple_slurm import Slurm
 from args import get_slurm_scheduler_argsparse
 from references.common import create_dir, get_name
-def extract_script_args(args) :
+
+def extract_script_args(args, signal_id) :
 
     args_dict = args.__dict__
     args_names = list(args_dict.keys())
@@ -29,17 +30,20 @@ def extract_script_args(args) :
                     command_argument += "--" + argument_name + list_string + " "
                 else :
                     command_argument += "--" + argument_name + " " + str(argument) + " "
-
+    command_argument += "--signal_id USR_%j "
+    
     return command_argument
 
 if __name__ == "__main__" :
     args, unknown_args = get_slurm_scheduler_argsparse().parse_known_args()
 
+    signal_id = "USR_%j"
+
     # Slurm Sbatch setup
     slurm = Slurm(job_name=args.job_name,
                     output=args.output, error=args.error, 
                     constraint=args.constraint, nodes=args.nodes, ntasks=args.ntasks,
-                    gres=args.gres, cpus_per_task=args.cpus_per_task, time=args.time, qos=args.qos, hint=args.hint, account=args.account)
+                    gres=args.gres, cpus_per_task=args.cpus_per_task, time=args.time, qos=args.qos, hint=args.hint, account=args.account, signal="USR_%j")
 
     # usual commands
     slurm.add_cmd("module purge")
@@ -49,7 +53,7 @@ if __name__ == "__main__" :
     slurm.add_cmd("export WANDB_DIR=$WORK/wandb/")
     slurm.add_cmd("export WANDB_MODE=offline")
 
-    script_args = extract_script_args(args)
+    script_args = extract_script_args(args, signal_id)
     
     # Add resume
     create_dir(args.output_dir)
