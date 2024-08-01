@@ -5,7 +5,7 @@ from simple_slurm import Slurm
 from args import get_slurm_scheduler_argsparse
 from references.common import create_dir, get_name
 
-def extract_script_args(args, signal_id) :
+def extract_script_args(args) :
 
     args_dict = args.__dict__
     args_names = list(args_dict.keys())
@@ -30,7 +30,6 @@ def extract_script_args(args, signal_id) :
                     command_argument += "--" + argument_name + list_string + " "
                 else :
                     command_argument += "--" + argument_name + " " + str(argument) + " "
-    command_argument += "--signal_id USR_%j "
 
     return command_argument
 
@@ -43,8 +42,6 @@ if __name__ == "__main__" :
                     constraint=args.constraint, nodes=args.nodes, ntasks=args.ntasks,
                     gres=args.gres, cpus_per_task=args.cpus_per_task, time=args.time, qos=args.qos, hint=args.hint, account=args.account, signal="USR1@40".format(4))
 
-    signal_id = "USR" + slurm.JOB_ID
-    print(signal_id)
     # usual commands
     slurm.add_cmd("module purge")
     slurm.add_cmd("conda deactivate")
@@ -61,7 +58,7 @@ if __name__ == "__main__" :
     if args.resume :
         args.resume = output_dir + "/" + args.resume
 
-    script_args = extract_script_args(args, signal_id)
+    script_args = extract_script_args(args)
 
     slurm.sbatch(f'srun python3 {args.script}.py', script_args)
     
