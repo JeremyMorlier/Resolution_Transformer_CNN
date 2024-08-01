@@ -53,15 +53,13 @@ if __name__ == "__main__" :
     slurm.add_cmd("export WANDB_DIR=$WORK/wandb/")
     slurm.add_cmd("export WANDB_MODE=offline")
 
-    script_args = extract_script_args(args, signal_id)
-    
     # Add resume
     create_dir(args.output_dir)
     args.name = get_name(args)
     output_dir = os.path.join(args.output_dir, args.name)
     create_dir(output_dir)
 
-    script_args = extract_script_args(args)
+    script_args = extract_script_args(args, signal_id)
 
     slurm.sbatch(f'srun python3 {args.script}.py', script_args)
     
