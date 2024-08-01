@@ -31,7 +31,7 @@ def extract_script_args(args, signal_id) :
                 else :
                     command_argument += "--" + argument_name + " " + str(argument) + " "
     command_argument += "--signal_id USR_%j "
-    
+
     return command_argument
 
 if __name__ == "__main__" :
@@ -43,7 +43,7 @@ if __name__ == "__main__" :
     slurm = Slurm(job_name=args.job_name,
                     output=args.output, error=args.error, 
                     constraint=args.constraint, nodes=args.nodes, ntasks=args.ntasks,
-                    gres=args.gres, cpus_per_task=args.cpus_per_task, time=args.time, qos=args.qos, hint=args.hint, account=args.account, signal="USR_%j")
+                    gres=args.gres, cpus_per_task=args.cpus_per_task, time=args.time, qos=args.qos, hint=args.hint, account=args.account, signal=signal_id +"@40")
 
     # usual commands
     slurm.add_cmd("module purge")
