@@ -37,15 +37,14 @@ def extract_script_args(args, signal_id) :
 if __name__ == "__main__" :
     args, unknown_args = get_slurm_scheduler_argsparse().parse_known_args()
 
-    signal_id = "USR_" + Slurm.JOB_ID
-    print(signal_id)
-
     # Slurm Sbatch setup
     slurm = Slurm(job_name=args.job_name,
                     output=args.output, error=args.error, 
                     constraint=args.constraint, nodes=args.nodes, ntasks=args.ntasks,
-                    gres=args.gres, cpus_per_task=args.cpus_per_task, time=args.time, qos=args.qos, hint=args.hint, account=args.account, signal=signal_id +"@40")
+                    gres=args.gres, cpus_per_task=args.cpus_per_task, time=args.time, qos=args.qos, hint=args.hint, account=args.account, signal="USR_{}@40".format(Slurm.JOB_ID))
 
+    signal_id = "USR_" + slurm.JOB_ID
+    print(signal_id)
     # usual commands
     slurm.add_cmd("module purge")
     slurm.add_cmd("conda deactivate")
