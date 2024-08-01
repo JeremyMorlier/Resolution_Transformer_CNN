@@ -312,7 +312,7 @@ def load_data(traindir, valdir, args):
 def main(args):
     utils.init_distributed_mode(args)
     print(args)
-    
+
     init_signal_handler(args.signal_id)
     # Setup
     if utils.is_main_process() :
@@ -325,10 +325,11 @@ def main(args):
         wandb_run_id = None
 
         if args.resume:
-            checkpoint = torch.load(args.resume, map_location="cpu")
-            if "wandb_run_id" in checkpoint :
-                wandb_run_id = checkpoint["wandb_run_id"]
-            print(wandb_run_id)
+            if os.path.isfile(args.resume) :
+                checkpoint = torch.load(args.resume, map_location="cpu")
+                if "wandb_run_id" in checkpoint :
+                    wandb_run_id = checkpoint["wandb_run_id"]
+                print(wandb_run_id)
         
         logger = Logger(project_name="resolution_CNN_ViT",
                         run_name=args.name,
@@ -476,16 +477,17 @@ def main(args):
         model_ema = utils.ExponentialMovingAverage(model_without_ddp, device=device, decay=1.0 - alpha)
 
     if args.resume:
-        checkpoint = torch.load(args.resume, map_location="cpu")
-        model_without_ddp.load_state_dict(checkpoint["model"])
-        if not args.test_only:
-            optimizer.load_state_dict(checkpoint["optimizer"])
-            lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
-        args.start_epoch = checkpoint["epoch"] + 1
-        if model_ema:
-            model_ema.load_state_dict(checkpoint["model_ema"])
-        if scaler:
-            scaler.load_state_dict(checkpoint["scaler"])
+        if os.path.isfile(args.resume) :
+            checkpoint = torch.load(args.resume, map_location="cpu")
+            model_without_ddp.load_state_dict(checkpoint["model"])
+            if not args.test_only:
+                optimizer.load_state_dict(checkpoint["optimizer"])
+                lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+            args.start_epoch = checkpoint["epoch"] + 1
+            if model_ema:
+                model_ema.load_state_dict(checkpoint["model_ema"])
+            if scaler:
+                scaler.load_state_dict(checkpoint["scaler"])
 
     if args.test_only:
         # We disable the cudnn benchmarking because it can noticeably affect the accuracy
