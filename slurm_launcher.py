@@ -37,7 +37,7 @@ def extract_script_args(args, signal_id) :
 if __name__ == "__main__" :
     args, unknown_args = get_slurm_scheduler_argsparse().parse_known_args()
 
-    signal_id = "USR_" + str(os.environ["%j"]) 
+    signal_id = "USR_" + Slurm.JOB_ID
     print(signal_id)
 
     # Slurm Sbatch setup
