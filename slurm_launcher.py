@@ -41,9 +41,9 @@ if __name__ == "__main__" :
     slurm = Slurm(job_name=args.job_name,
                     output=args.output, error=args.error, 
                     constraint=args.constraint, nodes=args.nodes, ntasks=args.ntasks,
-                    gres=args.gres, cpus_per_task=args.cpus_per_task, time=args.time, qos=args.qos, hint=args.hint, account=args.account, signal="USR_{}@40".format(Slurm.JOB_ID))
+                    gres=args.gres, cpus_per_task=args.cpus_per_task, time=args.time, qos=args.qos, hint=args.hint, account=args.account, signal="USR{}@40".format(Slurm.JOB_ID))
 
-    signal_id = "USR_" + slurm.JOB_ID
+    signal_id = "USR" + slurm.JOB_ID
     print(signal_id)
     # usual commands
     slurm.add_cmd("module purge")
