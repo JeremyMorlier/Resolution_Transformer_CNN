@@ -59,6 +59,8 @@ if __name__ == "__main__" :
     args.name = get_name(args)
     output_dir = os.path.join(args.output_dir, args.name)
     create_dir(output_dir)
+    if args.resume :
+        args.resume = output_dir + "/" + args.resume
 
     script_args = extract_script_args(args, signal_id)
 
@@ -66,8 +68,8 @@ if __name__ == "__main__" :
     
     # Save Slurm script
     script = slurm.script()
-    if args.add_resume :
-        script = script[:-1] + f" --resume {output_dir}/checkpoint.pth" + script[-1:]
+    # if args.add_resume :
+    #     script = script[:-1] + f" --resume {output_dir}/checkpoint.pth" + script[-1:]
     with open(output_dir + f"/slurm_script_job_{args.job_name}_.sh", "w") as file :
         file.writelines(script)
     print(script)
