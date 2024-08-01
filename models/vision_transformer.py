@@ -819,6 +819,22 @@ def vit_custom(*, weights: Optional[ViT_B_16_Weights] = None, progress: bool = T
         **kwargs,
     )
 
+@register_model()
+@handle_legacy_interface(weights=("pretrained", None))
+def vit_small(*, weights = None, progress: bool = True, **kwargs:any) -> VisionTransformer:
+    """
+    Construct a vit_small based on dinov2 specification https://github.com/facebookresearch/dinov2/blob/main/dinov2/models/vision_transformer.py
+    """
+    return _vision_transformer(
+        # patch_size=14,
+        num_layers=32,
+        num_heads=16,
+        hidden_dim=1280,
+        mlp_dim=1536,
+        weights=weights,
+        progress=progress,
+        **kwargs,
+    )
 def interpolate_embeddings(
     image_size: int,
     patch_size: int,
