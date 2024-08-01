@@ -121,9 +121,8 @@ def sig_handler(signum, frame):
         os.system('scontrol requeue ' + os.environ['SLURM_JOB_ID'])
     sys.exit(-1)
 
-def init_signal_handler(signal_id):
+def init_signal_handler():
     """
     Handle signals sent by SLURM for time limit.
     """
-    if signal_id != None :
-        signal.signal(signal.getattr(signal_id), sig_handler)
+    signal.signal(signal.SIGUSR1, sig_handler)

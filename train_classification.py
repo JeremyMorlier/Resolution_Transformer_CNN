@@ -313,7 +313,7 @@ def main(args):
     utils.init_distributed_mode(args)
     print(args)
 
-    init_signal_handler(args.signal_id)
+    init_signal_handler()
     # Setup
     if utils.is_main_process() :
         

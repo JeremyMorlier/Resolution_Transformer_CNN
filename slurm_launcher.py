@@ -41,7 +41,7 @@ if __name__ == "__main__" :
     slurm = Slurm(job_name=args.job_name,
                     output=args.output, error=args.error, 
                     constraint=args.constraint, nodes=args.nodes, ntasks=args.ntasks,
-                    gres=args.gres, cpus_per_task=args.cpus_per_task, time=args.time, qos=args.qos, hint=args.hint, account=args.account, signal="B:USR{}@40".format(4))
+                    gres=args.gres, cpus_per_task=args.cpus_per_task, time=args.time, qos=args.qos, hint=args.hint, account=args.account, signal="USR1@40".format(4))
 
     signal_id = "USR" + slurm.JOB_ID
     print(signal_id)
