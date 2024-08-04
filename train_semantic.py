@@ -21,6 +21,8 @@ from references.segmentation.coco_utils import get_coco
 
 from references.common import get_name
 
+from memory_flops import get_memory_flops
+
 from logger import Logger
 
 from args import get_segmentation_argsparse 
@@ -78,16 +80,20 @@ def get_transform(is_train, args):
 def get_param_model(args, num_classes) :
     if args.model == "resnet50_resize" :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes, first_conv_resize=args.first_conv_resize, channels=args.channels, depths=args.depths)
+        memory, flops = get_memory_flops(model, args.val_crop_size, args)
     elif args.model == "vit_custom" :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes, patch_size=args.patch_size, num_layers=args.num_layers, num_heads=args.num_heads, hidden_dim=args.hidden_dim, mlp_dim=args.mlp_dim, image_size=args.img_size)
+        memory, flops = get_memory_flops(model, args.val_crop_size, args)
     elif args.model == "regseg_custom" :
         channels = [32, 48, 128, 256, 320] if args.regseg_channels == None else args.regseg_channels
         gw = 16 if args.regseg_gw == 0 else args.regseg_gw
         model = get_model(args.model, weights=args.weights, weights_backbone=args.weights_backbone, num_classes=num_classes, aux_loss=args.aux_loss, regseg_name=args.regseg_name, channels=channels, gw=gw, first_conv_resize=args.first_conv_resize)
+        memory, flops = get_memory_flops(model, args.val_crop_size, args)
     else :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes)
+        memory, flops = get_memory_flops(model, args.val_crop_size, args)
     
-    return model
+    return model, memory, flops
 
 def criterion(inputs, target):
     losses = {}
@@ -144,7 +150,7 @@ def resolution_evaluate(model_state_dict, device, num_classes, args) :
 
     # In evaluation, set training architecture modifications to 0
     args.first_conv_resize = 0
-    model = get_param_model(args, num_classes=num_classes)
+    model, memory, flops = get_param_model(args, num_classes=num_classes)
     model.load_state_dict(torch.load(model_state_dict)["model"])
     model.to(device)
 
@@ -276,7 +282,11 @@ def main(args):
         dataset_test, batch_size=1, sampler=test_sampler, num_workers=args.workers, collate_fn=utils.collate_fn
     )
 
-    model =  get_param_model(args, num_classes)
+    model, memory, flops =  get_param_model(args, num_classes)
+    if utils.is_main_process() :
+        print(memory, flops)
+        logger.log({"memory":memory})
+        logger.log({"model_ops":flops})
     model.to(device)
     if args.distributed:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -374,14 +384,17 @@ def main(args):
         utils.save_on_master(checkpoint, os.path.join(args.output_dir, "checkpoint.pth"))
 
     # Save and permissions modifications
-    os.chmod(os.path.join(args.output_dir, f"model_best.pth"),stat.S_IRWXU | stat.S_IRWXO)
-    os.chmod(os.path.join(args.output_dir, "checkpoint.pth"), stat.S_IRWXU | stat.S_IRWXO)
+    if utils.is_main_process() :
+        os.chmod(os.path.join(args.output_dir, f"model_best.pth"),stat.S_IRWXU | stat.S_IRWXO)
+        os.chmod(os.path.join(args.output_dir, "checkpoint.pth"), stat.S_IRWXU | stat.S_IRWXO)
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Training time {total_time_str}")
 
     # Evaluate the trained model at different resolutions
-    resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), device, num_classes, args)
+    if utils.is_main_process() :
+        all_results = resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), device, num_classes, args)
+        logger.log({"evaluations": all_results})
 
     if utils.is_main_process() :
         logger.finish()
