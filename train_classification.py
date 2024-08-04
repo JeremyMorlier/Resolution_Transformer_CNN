@@ -135,7 +135,7 @@ def resolution_evaluate(model_state_dict, criterion, device, num_classes, val_cr
 
     # In evaluation, set training architecture modifications to 0
     args.first_conv_resize = 0
-    model = get_param_model(args, num_classes=num_classes)
+    model, memory, flops = get_param_model(args, num_classes=num_classes)
     model.load_state_dict(torch.load(model_state_dict)["model"])
     model.to(device)
     
@@ -389,6 +389,11 @@ def main(args):
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
+    model_without_ddp = model
+    if args.distributed:
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        model_without_ddp = model.module
+        
     criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
 
     custom_keys_weight_decay = []
@@ -458,10 +463,6 @@ def main(args):
     else:
         lr_scheduler = main_lr_scheduler
 
-    model_without_ddp = model
-    if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
-        model_without_ddp = model.module
 
     model_ema = None
     if args.model_ema:
@@ -549,8 +550,9 @@ def main(args):
     
     utils.save_on_master(checkpoint, os.path.join(args.output_dir, "checkpoint.pth"))
     utils.save_on_master(checkpoint, os.path.join(args.output_dir, "model_best.pth"))
-    os.chmod(os.path.join(args.output_dir, f"model_best.pth"),stat.S_IRWXU | stat.S_IRWXO)
-    os.chmod(os.path.join(args.output_dir, "checkpoint.pth"), stat.S_IRWXU | stat.S_IRWXO)
+    if utils.is_main_process() :
+        os.chmod(os.path.join(args.output_dir, f"model_best.pth"),stat.S_IRWXU | stat.S_IRWXO)
+        os.chmod(os.path.join(args.output_dir, "checkpoint.pth"), stat.S_IRWXU | stat.S_IRWXO)
 
     training_time = time.time()
     total_time = training_time - start_time

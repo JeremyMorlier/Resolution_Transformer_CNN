@@ -223,10 +223,11 @@ def main(args):
         wandb_run_id = None
 
         if args.resume:
-            checkpoint = torch.load(args.resume, map_location="cpu")
-            if "wandb_run_id" in checkpoint :
-                wandb_run_id = checkpoint["wandb_run_id"]
-            print(wandb_run_id)
+            if os.path.isfile(args.resume) :
+                checkpoint = torch.load(args.resume, map_location="cpu")
+                if "wandb_run_id" in checkpoint :
+                    wandb_run_id = checkpoint["wandb_run_id"]
+                print(wandb_run_id)
         
         logger = Logger(project_name="resolution_CNN_ViT",
                         run_name=args.name,
