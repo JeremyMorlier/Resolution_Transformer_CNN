@@ -340,14 +340,15 @@ def main(args):
         lr_scheduler = main_lr_scheduler
 
     if args.resume:
-        checkpoint = torch.load(args.resume, map_location="cpu", weights_only=True)
-        model_without_ddp.load_state_dict(checkpoint["model"], strict=not args.test_only)
-        if not args.test_only:
-            optimizer.load_state_dict(checkpoint["optimizer"])
-            lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
-            args.start_epoch = checkpoint["epoch"] + 1
-            if args.amp:
-                scaler.load_state_dict(checkpoint["scaler"])
+        if os.path.isfile(args.resume) :
+            checkpoint = torch.load(args.resume, map_location="cpu", weights_only=True)
+            model_without_ddp.load_state_dict(checkpoint["model"], strict=not args.test_only)
+            if not args.test_only:
+                optimizer.load_state_dict(checkpoint["optimizer"])
+                lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+                args.start_epoch = checkpoint["epoch"] + 1
+                if args.amp:
+                    scaler.load_state_dict(checkpoint["scaler"])
 
     if args.test_only:
         # We disable the cudnn benchmarking because it can noticeably affect the accuracy
