@@ -80,18 +80,18 @@ def get_transform(is_train, args):
 def get_param_model(args, num_classes) :
     if args.model == "resnet50_resize" :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes, first_conv_resize=args.first_conv_resize, channels=args.channels, depths=args.depths)
-        memory, flops = get_memory_flops(model, args.val_crop_size, args)
+        memory, flops = get_memory_flops(model, args.random_crop_size, args)
     elif args.model == "vit_custom" :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes, patch_size=args.patch_size, num_layers=args.num_layers, num_heads=args.num_heads, hidden_dim=args.hidden_dim, mlp_dim=args.mlp_dim, image_size=args.img_size)
-        memory, flops = get_memory_flops(model, args.val_crop_size, args)
+        memory, flops = get_memory_flops(model, args.random_crop_size, args)
     elif args.model == "regseg_custom" :
         channels = [32, 48, 128, 256, 320] if args.regseg_channels == None else args.regseg_channels
         gw = 16 if args.regseg_gw == 0 else args.regseg_gw
         model = get_model(args.model, weights=args.weights, weights_backbone=args.weights_backbone, num_classes=num_classes, aux_loss=args.aux_loss, regseg_name=args.regseg_name, channels=channels, gw=gw, first_conv_resize=args.first_conv_resize)
-        memory, flops = get_memory_flops(model, args.val_crop_size, args)
+        memory, flops = get_memory_flops(model, args.random_crop_size, args)
     else :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes)
-        memory, flops = get_memory_flops(model, args.val_crop_size, args)
+        memory, flops = get_memory_flops(model, args.random_crop_size, args)
     
     return model, memory, flops
 
