@@ -117,7 +117,7 @@ if __name__ == "__main__" :
         print("Processing Folder")
         files_list = os.listdir(arguments.path)
         for filepath in files_list :
-            Print("Processing: ", filepath)
+            print("Processing: ", filepath)
             wandb_log(os.path.join(arguments.path, filepath))
     elif os.path.isfile(arguments.path) :
         print("Processing: ", arguments.path)
