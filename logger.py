@@ -85,12 +85,10 @@ def args_parser(add_help=True) :
 
     return parser
 
-if __name__ == "__main__" :
+def wandb_log(filepath) :
+    if os.path.isfile(filepath) :
 
-    arguments, unknown = args_parser().parse_known_args()
-    if os.path.isfile(arguments.path) :
-
-        with open(arguments.path, "r") as file :
+        with open(filepath, "r") as file :
             lines = file.readlines()
 
             header = json.loads(lines[0])
@@ -112,3 +110,14 @@ if __name__ == "__main__" :
             wandb.finish()
     else :
         print("Log file does not exist")
+if __name__ == "__main__" :
+
+    arguments, unknown = args_parser().parse_known_args()
+    if  os.path.isdir(arguments.path) :
+        files_list = os.path.lisdir(arguments.path)
+        for filepath in files_list :
+            wandb_log(os.path.join(arguments.path, filepath))
+    elif os.path.isfile(arguments.path) :
+        wandb_log(arguments.path)
+
+    
