@@ -114,10 +114,13 @@ if __name__ == "__main__" :
 
     arguments, unknown = args_parser().parse_known_args()
     if  os.path.isdir(arguments.path) :
-        files_list = os.path.lisdir(arguments.path)
+        print("Processing Folder")
+        files_list = os.listdir(arguments.path)
         for filepath in files_list :
+            Print("Processing: ", filepath)
             wandb_log(os.path.join(arguments.path, filepath))
     elif os.path.isfile(arguments.path) :
+        print("Processing: ", arguments.path)
         wandb_log(arguments.path)
 
     
