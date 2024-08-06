@@ -93,26 +93,30 @@ def create_dir(dir) :
 
 def get_name(args) :
 
-    name_channel = ""
+    resnet_channels_name = ""
+    regseg_channels_name = ""
 
     # Classification 
     if hasattr(args, "channels") :
         if args.channels != None :
             for element in args.channels :
-                name_channel += "_" + str(element)
-    elif hasattr(args, "regseg_channels") :
+                resnet_channels_name += "_" + str(element)
+    else :
+        resnet_channels_name = "_None"
+
+    if hasattr(args, "regseg_channels") :
         if args.regseg_channels != None :
             for element in args.regseg_channels :
-                name_channel += "_" + str(element)
+                regseg_channels_name += "_" + str(element)
     else :
-        name_channel = "_None"
+        regseg_channels_name = "_None"
     
     if "resnet" in args.model :
-        name = args.model + "_" + str(args.train_crop_size) + "_" + str(args.val_crop_size)  + "_" + str(args.val_resize_size) + "_" + str(args.first_conv_resize) + name_channel
+        name = args.model + "_" + str(args.train_crop_size) + "_" + str(args.val_crop_size)  + "_" + str(args.val_resize_size) + "_" + str(args.first_conv_resize) + resnet_channels_name
     elif "vit" in args.model:
         name = args.model + "_" + str(args.patch_size) + "_" + str(args.num_layers) + "_" + str(args.num_heads) + "_" + str(args.hidden_dim) + "_" + str(args.mlp_dim) + "_" + str(args.img_size)
     elif "regseg" in args.model :
-        name = args.model + "_" + str(args.scale_low_size) + "_" + str(args.scale_high_size)  + "_" + str(args.random_crop_size) + "_" + str(args.first_conv_resize) + "_" + str(args.regseg_gw) + "_" + name_channel
+        name = args.model + "_" + str(args.scale_low_size) + "_" + str(args.scale_high_size)  + "_" + str(args.random_crop_size) + "_" + str(args.first_conv_resize) + "_" + str(args.regseg_gw) + "_" + regseg_channels_name
     
     return name
 
