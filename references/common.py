@@ -93,23 +93,21 @@ def create_dir(dir) :
 
 def get_name(args) :
 
-    resnet_channels_name = ""
-    regseg_channels_name = ""
+    resnet_channels_name = "_None"
+    regseg_channels_name = "_None"
 
     # Classification 
     if hasattr(args, "channels") :
         if args.channels != None :
+            resnet_channels_name = ""
             for element in args.channels :
                 resnet_channels_name += "_" + str(element)
-    else :
-        resnet_channels_name = "_None"
 
     if hasattr(args, "regseg_channels") :
         if args.regseg_channels != None :
+            regseg_channels_name = ""
             for element in args.regseg_channels :
                 regseg_channels_name += "_" + str(element)
-    else :
-        regseg_channels_name = "_None"
     
     if "resnet" in args.model :
         name = args.model + "_" + str(args.train_crop_size) + "_" + str(args.val_crop_size)  + "_" + str(args.val_resize_size) + "_" + str(args.first_conv_resize) + resnet_channels_name

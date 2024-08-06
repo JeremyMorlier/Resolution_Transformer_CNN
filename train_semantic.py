@@ -78,22 +78,34 @@ def get_transform(is_train, args):
         return presets.SegmentationPresetEval(base_size=520, backend=args.backend, use_v2=args.use_v2)
 
 def get_param_model(args, num_classes) :
+
+    memories = []
+    flops_list = []
+    # Evaluate Model on a range of crops
+    if "vit" not in args.model :
+        val_crop_resolutions = [128, 256, 384, 512, 640, 768, 896, 1024, 1280, 1536]
+    else :
+        val_crop_resolutions = [args.img_size]
+    val_crop_resolutions.append(args.random_crop_size)
+
+
     if args.model == "resnet50_resize" :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes, first_conv_resize=args.first_conv_resize, channels=args.channels, depths=args.depths)
-        memory, flops = get_memory_flops(model, args.random_crop_size, args)
     elif args.model == "vit_custom" :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes, patch_size=args.patch_size, num_layers=args.num_layers, num_heads=args.num_heads, hidden_dim=args.hidden_dim, mlp_dim=args.mlp_dim, image_size=args.img_size)
-        memory, flops = get_memory_flops(model, args.random_crop_size, args)
     elif args.model == "regseg_custom" :
         channels = [32, 48, 128, 256, 320] if args.regseg_channels == None else args.regseg_channels
         gw = 16 if args.regseg_gw == 0 else args.regseg_gw
         model = get_model(args.model, weights=args.weights, weights_backbone=args.weights_backbone, num_classes=num_classes, aux_loss=args.aux_loss, regseg_name=args.regseg_name, channels=channels, gw=gw, first_conv_resize=args.first_conv_resize)
-        memory, flops = get_memory_flops(model, args.random_crop_size, args)
     else :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes)
-        memory, flops = get_memory_flops(model, args.random_crop_size, args)
     
-    return model, memory, flops
+    for val_crop_resolution in val_crop_resolutions :
+        memory, flops = get_memory_flops(model, val_crop_resolution, args)
+        memories.append(memory)
+        flops_list.append(flops)
+
+    return model, memories, flops_list, val_crop_resolutions
 
 def criterion(inputs, target):
     losses = {}
@@ -150,7 +162,7 @@ def resolution_evaluate(model_state_dict, device, num_classes, args) :
 
     # In evaluation, set training architecture modifications to 0
     args.first_conv_resize = 0
-    model, memory, flops = get_param_model(args, num_classes=num_classes)
+    model, memories, flops_list, val_crop_resolutions = get_param_model(args, num_classes=num_classes)
     model.to(device)
     model_without_ddp = model
     if args.distributed:
@@ -288,11 +300,13 @@ def main(args):
         dataset_test, batch_size=1, sampler=test_sampler, num_workers=args.workers, collate_fn=utils.collate_fn
     )
 
-    model, memory, flops =  get_param_model(args, num_classes)
+    model, memories, flops_list, val_crop_resolutions =  get_param_model(args, num_classes)
     if utils.is_main_process() :
-        print(memory, flops)
-        logger.log({"memory":memory})
-        logger.log({"model_ops":flops})
+        print(memories, flops_list)
+        logger.log({"memory":memories})
+        logger.log({"model_ops":flops_list})
+        logger.log({"measured_crops":val_crop_resolutions})
+
     model.to(device)
     if args.distributed:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -368,6 +382,10 @@ def main(args):
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
+        
+        if utils.is_main_process() :
+            logger.log({"epoch": epoch})
+
         train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler, device, epoch, args.print_freq, scaler)
         confmat = evaluate(model, data_loader_test, device=device, num_classes=num_classes, exclude_classes=args.exclude_classes)
         confmat.compute()

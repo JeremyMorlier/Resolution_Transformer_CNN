@@ -24,17 +24,29 @@ from args import get_classification_argsparse
 from memory_flops import get_memory_flops
 
 def get_param_model(args, num_classes) :
+    
+    # Evaluate all wanted resolutions of the model
+    if "vit" not in args.model :
+        val_crop_resolutions = [112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304, 320, 336, 352]
+    else :
+        val_crop_resolutions = [args.img_size]
+    val_crop_resolutions.append(args.val_crop_size)
+
+    memories = []
+    flops_list = []
+
     if args.model == "resnet50_resize" :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes, first_conv_resize=args.first_conv_resize, channels=args.channels, depths=args.depths)
-        memory, flops = get_memory_flops(model, args.val_crop_size, args)
     elif args.model == "vit_custom" :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes, patch_size=args.patch_size, num_layers=args.num_layers, num_heads=args.num_heads, hidden_dim=args.hidden_dim, mlp_dim=args.mlp_dim, image_size=args.img_size)
-        memory, flops = get_memory_flops(model, args.val_crop_size, args)
     else :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes)
-        memory, flops = get_memory_flops(model, args.val_crop_size, args)
-    
-    return model, memory, flops
+
+    for val_crop_resolution in val_crop_resolutions :
+        memory, flops = get_memory_flops(model, val_crop_resolution, args)
+        memories.append(memory)
+        flops_list.append(flops)
+    return model, memories, flops_list, val_crop_resolutions
 
 def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args, model_ema=None, scaler=None):
     model.train()
@@ -126,16 +138,12 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix="
     print(f"{header} Acc@1 {metric_logger.acc1.global_avg:.3f} Acc@5 {metric_logger.acc5.global_avg:.3f}")
     return metric_logger.acc1.global_avg, metric_logger.acc5.global_avg
 
-def resolution_evaluate(model_state_dict, criterion, device, num_classes, val_crop_resolutions, val_resize_resolutions,  args) :
-    from torchvision.transforms import v2
-    from torchvision.datasets import ImageNet
-    from torch.utils.data import DataLoader
-
+def resolution_evaluate(model_state_dict, criterion, device, num_classes, val_resize_resolutions,  args) :
     all_results = []
 
     # In evaluation, set training architecture modifications to 0
     args.first_conv_resize = 0
-    model, memory, flops = get_param_model(args, num_classes=num_classes)
+    model, memory, flops, val_crop_resolutions = get_param_model(args, num_classes=num_classes)
     model.to(device)
 
     model_without_ddp = model
@@ -153,9 +161,6 @@ def resolution_evaluate(model_state_dict, criterion, device, num_classes, val_cr
             # Load Dataset 
             dataset_test, test_sampler = load_val_data(os.path.join(args.data_path, "val"), val_crop_resolution, val_resize_resolution, args)
             data_loader_test = torch.utils.data.DataLoader(dataset_test, batch_size=args.batch_size, sampler=test_sampler, num_workers=args.workers, pin_memory=True)
-            # val_transform = v2.Compose([v2.ToImage(), v2.Resize(val_resize_resolution), v2.CenterCrop(val_crop_resolution), v2.ToDtype(torch.float32, scale=True), v2.Normalize(mean = torch.tensor([0.485, 0.456, 0.406]), std = torch.tensor([0.229, 0.224, 0.225]))])
-            # val = ImageNet(root=args.data_path, split="val", transform=val_transform)
-            # val_loader =  DataLoader(val, 128, shuffle=True, num_workers=6)
 
             print("Dataset loaded")
 
@@ -389,13 +394,14 @@ def main(args):
     )
     print(num_classes)
     print("Creating model")
-    model, memory, flops = get_param_model(args, num_classes=num_classes)
+    model, memory, flops, val_crop_resolutions = get_param_model(args, num_classes=num_classes)
     model.to(device)
 
     if utils.is_main_process() :
         print(memory, flops)
         logger.log({"memory":memory})
         logger.log({"model_ops":flops})
+        logger.log({"measured_crops":val_crop_resolutions})
 
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -571,13 +577,9 @@ def main(args):
     print(f"Training time {total_time_str}")
 
     # Evaluate the model on a range of crop and resize resolutions
-    if "vit" not in args.model :
-        val_crop_resolutions = [112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304, 320, 336, 352]
-    else :
-        val_crop_resolutions = [args.img_size]
     val_resize_resolutions = [120, 136, 152, 168, 184, 200, 216, 232, 248, 264, 280, 296, 312, 328, 344, 360]
 
-    results, val_crop_resolutions, val_resize_resolution = resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), criterion, device, num_classes, val_crop_resolutions, val_resize_resolutions,  args)
+    results, val_crop_resolutions, val_resize_resolution = resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), criterion, device, num_classes, val_resize_resolutions,  args)
     
     if utils.is_main_process():
         logger.log({"acc_resolutions": results, "val_crop_resolutions": val_crop_resolutions, "val_resize_resolution": val_resize_resolutions})
