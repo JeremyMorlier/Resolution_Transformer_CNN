@@ -338,6 +338,7 @@ def reduce_across_processes(val):
     return t
 
 def create_dir(dir) :
-    if not os.path.isdir(dir) :
-        os.mkdir(dir)
-        os.chmod(dir, stat.S_IRWXU | stat.S_IRWXO)
+    if is_main_process() :
+        if not os.path.isdir(dir) :
+            os.mkdir(dir)
+            os.chmod(dir, stat.S_IRWXU | stat.S_IRWXO)

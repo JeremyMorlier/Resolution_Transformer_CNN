@@ -19,7 +19,7 @@ import references.segmentation.RegSeg.presets as RS_presets
 import references.segmentation.utils as utils
 from references.segmentation.coco_utils import get_coco
 
-from references.common import get_name
+from references.common import get_name, init_signal_handler
 
 from memory_flops import get_memory_flops
 
@@ -151,8 +151,12 @@ def resolution_evaluate(model_state_dict, device, num_classes, args) :
     # In evaluation, set training architecture modifications to 0
     args.first_conv_resize = 0
     model, memory, flops = get_param_model(args, num_classes=num_classes)
-    model.load_state_dict(torch.load(model_state_dict)["model"])
     model.to(device)
+    model_without_ddp = model
+    if args.distributed:
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        model_without_ddp = model.module
+    model_without_ddp.load_state_dict(torch.load(model_state_dict)["model"])
 
     for val_resize_resolution in val_resize_resolutions :
         print("Dataset loading :", val_resize_resolution)
@@ -218,13 +222,15 @@ def main(args):
     utils.init_distributed_mode(args)
     print(args)
 
+    init_signal_handler()
+
+    # Change output directory and create it if necessary
+    utils.create_dir(args.output_dir)
+    args.output_dir = os.path.join(args.output_dir, args.name)
+    utils.create_dir(args.output_dir)
+
     # Setup
     if utils.is_main_process() :
-
-        # Change output directory and create it if necessary
-        utils.create_dir(args.output_dir)
-        args.output_dir = os.path.join(args.output_dir, args.name)
-        utils.create_dir(args.output_dir)
 
         wandb_run_id = None
 
@@ -388,13 +394,14 @@ def main(args):
     if utils.is_main_process() :
         os.chmod(os.path.join(args.output_dir, f"model_best.pth"),stat.S_IRWXU | stat.S_IRWXO)
         os.chmod(os.path.join(args.output_dir, "checkpoint.pth"), stat.S_IRWXU | stat.S_IRWXO)
+
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Training time {total_time_str}")
 
     # Evaluate the trained model at different resolutions
+    all_results = resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), device, num_classes, args)
     if utils.is_main_process() :
-        all_results = resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), device, num_classes, args)
         logger.log({"evaluations": all_results})
 
     if utils.is_main_process() :

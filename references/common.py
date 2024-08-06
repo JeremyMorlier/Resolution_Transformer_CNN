@@ -86,9 +86,10 @@ def init_distributed_mode(args):
     setup_for_distributed(args.rank == 0)
 
 def create_dir(dir) :
-    if not os.path.isdir(dir) :
-        os.mkdir(dir)
-        os.chmod(dir, stat.S_IRWXU | stat.S_IRWXO)
+    if is_main_process() :
+        if not os.path.isdir(dir) :
+            os.mkdir(dir)
+            os.chmod(dir, stat.S_IRWXU | stat.S_IRWXO)
 
 def get_name(args) :
 
