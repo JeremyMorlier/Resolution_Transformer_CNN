@@ -153,8 +153,10 @@ def resolution_evaluate(model_state_dict, criterion, device, num_classes, val_re
     
     model_without_ddp.load_state_dict(torch.load(model_state_dict)["model"])
     
-    for val_crop_resolution in val_crop_resolutions :
+    for val_crop_resolution in list(set(val_crop_resolutions)) :
         global_results = []
+        if "resnet" in args.model :
+            val_resize_resolutions = [val_crop_resolution*232/224]
         for val_resize_resolution in val_resize_resolutions :
             print("Dataset loading :", val_crop_resolution, val_resize_resolution)
 
