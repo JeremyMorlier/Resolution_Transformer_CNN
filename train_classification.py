@@ -370,6 +370,7 @@ def main(args):
     dataset, dataset_test, train_sampler, test_sampler = load_data(train_dir, val_dir, args)
 
     num_classes = len(dataset.classes)
+    num_classes = 1000
     mixup_cutmix = get_mixup_cutmix(
         mixup_alpha=args.mixup_alpha, cutmix_alpha=args.cutmix_alpha, num_categories=num_classes, use_v2=args.use_v2
     )
@@ -497,11 +498,15 @@ def main(args):
     if args.resume:
         if os.path.isfile(args.resume) :
             checkpoint = torch.load(args.resume, map_location="cpu")
+            print(checkpoint.keys())
             model_without_ddp.load_state_dict(checkpoint["model"])
             if not args.test_only:
-                optimizer.load_state_dict(checkpoint["optimizer"])
-                lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
-            args.start_epoch = checkpoint["epoch"] + 1
+                if "optimizer" in checkpoint :
+                    optimizer.load_state_dict(checkpoint["optimizer"])
+                if "lr_scheduler" in checkpoint :
+                    lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+            if "epoch" in checkpoint :
+                args.start_epoch = checkpoint["epoch"] + 1
             if model_ema:
                 model_ema.load_state_dict(checkpoint["model_ema"])
             if scaler:

@@ -361,7 +361,7 @@ def main(args):
 
     if args.resume:
         if os.path.isfile(args.resume) :
-            checkpoint = torch.load(args.resume, map_location="cpu", weights_only=True)
+            checkpoint = torch.load(args.resume, map_location="cpu")
             model_without_ddp.load_state_dict(checkpoint["model"], strict=not args.test_only)
             if not args.test_only:
                 optimizer.load_state_dict(checkpoint["optimizer"])
@@ -410,15 +410,17 @@ def main(args):
 
     # Save and permissions modifications
     if utils.is_main_process() :
-        os.chmod(os.path.join(args.output_dir, f"model_best.pth"),stat.S_IRWXU | stat.S_IRWXO)
-        os.chmod(os.path.join(args.output_dir, "checkpoint.pth"), stat.S_IRWXU | stat.S_IRWXO)
+        if os.path.isfile(os.path.join(args.output_dir, f"model_best.pth")) :
+            os.chmod(os.path.join(args.output_dir, f"model_best.pth"),stat.S_IRWXU | stat.S_IRWXO)
+        if os.path.isfile(os.path.join(args.output_dir, "checkpoint.pth")) :
+            os.chmod(os.path.join(args.output_dir, "checkpoint.pth"), stat.S_IRWXU | stat.S_IRWXO)
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Training time {total_time_str}")
 
     # Evaluate the trained model at different resolutions
-    all_results = resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), device, num_classes, args)
+    all_results = resolution_evaluate(os.path.join(args.output_dir, f"checkpoint.pth"), device, num_classes, args)
     if utils.is_main_process() :
         logger.log({"evaluations": all_results})
 
