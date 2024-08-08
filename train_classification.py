@@ -155,8 +155,6 @@ def resolution_evaluate(model_state_dict, criterion, device, num_classes, val_re
     
     for val_crop_resolution in list(set(val_crop_resolutions)) :
         global_results = []
-        if "resnet" in args.model :
-            val_resize_resolutions = [val_crop_resolution*232/224]
         for val_resize_resolution in val_resize_resolutions :
             print("Dataset loading :", val_crop_resolution, val_resize_resolution)
 
@@ -514,15 +512,15 @@ def main(args):
             if scaler:
                 scaler.load_state_dict(checkpoint["scaler"])
 
-    if args.test_only:
-        # We disable the cudnn benchmarking because it can noticeably affect the accuracy
-        torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.deterministic = True
-        if model_ema:
-            evaluate(model_ema, criterion, data_loader_test, device=device, log_suffix="EMA")
-        else:
-            evaluate(model, criterion, data_loader_test, device=device)
-        return
+    # if args.test_only:
+    #     # We disable the cudnn benchmarking because it can noticeably affect the accuracy
+    #     torch.backends.cudnn.benchmark = False
+    #     torch.backends.cudnn.deterministic = True
+    #     if model_ema:
+    #         evaluate(model_ema, criterion, data_loader_test, device=device, log_suffix="EMA")
+    #     else:
+    #         evaluate(model, criterion, data_loader_test, device=device)
+    #     return
 
     print("Start training")
     start_time = time.time()
@@ -570,13 +568,12 @@ def main(args):
                 best_acc1 = acc1_epoch
                 utils.save_on_master(checkpoint, os.path.join(args.output_dir, f"model_best.pth"))
             utils.save_on_master(checkpoint, os.path.join(args.output_dir, "checkpoint.pth"))
-    checkpoint = {"model": model_without_ddp.state_dict()}
     
-    utils.save_on_master(checkpoint, os.path.join(args.output_dir, "checkpoint.pth"))
-    utils.save_on_master(checkpoint, os.path.join(args.output_dir, "model_best.pth"))
     if utils.is_main_process() :
-        os.chmod(os.path.join(args.output_dir, f"model_best.pth"),stat.S_IRWXU | stat.S_IRWXO)
-        os.chmod(os.path.join(args.output_dir, "checkpoint.pth"), stat.S_IRWXU | stat.S_IRWXO)
+        if os.path.isfile(os.path.join(args.output_dir, f"model_best.pth")) :
+            os.chmod(os.path.join(args.output_dir, f"model_best.pth"),stat.S_IRWXU | stat.S_IRWXO)
+        if os.path.isfile(os.path.join(args.output_dir, f"checkpoint.pth")) :
+            os.chmod(os.path.join(args.output_dir, "checkpoint.pth"), stat.S_IRWXU | stat.S_IRWXO)
 
     training_time = time.time()
     total_time = training_time - start_time
@@ -586,7 +583,7 @@ def main(args):
     # Evaluate the model on a range of crop and resize resolutions
     val_resize_resolutions = [120, 136, 152, 168, 184, 200, 216, 232, 248, 264, 280, 296, 312, 328, 344, 360]
 
-    results, val_crop_resolutions, val_resize_resolution = resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), criterion, device, num_classes, val_resize_resolutions,  args)
+    results, val_crop_resolutions, val_resize_resolution = resolution_evaluate(os.path.join(args.output_dir, f"checkpoint.pth"), criterion, device, num_classes, val_resize_resolutions,  args)
     
     if utils.is_main_process():
         logger.log({"acc_resolutions": results, "val_crop_resolutions": val_crop_resolutions, "val_resize_resolution": val_resize_resolutions})
