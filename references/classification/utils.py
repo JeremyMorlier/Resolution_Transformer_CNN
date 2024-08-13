@@ -77,6 +77,7 @@ def init_distributed_mode(args):
         args.gpu = args.rank % torch.cuda.device_count()
         args.world_size = int(os.environ['SLURM_NTASKS'])
         args.slurm_jobid = int(os.environ["SLURM_JOB_ID"])
+        args.slurm_jobname = int(os.environ["SLURM_JOB_NAME"])
 
         local_rank = int(os.environ['SLURM_LOCALID'])
         cpus_per_task = int(os.environ['SLURM_CPUS_PER_TASK'])
