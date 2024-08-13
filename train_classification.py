@@ -139,7 +139,6 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix="
     return metric_logger.acc1.global_avg, metric_logger.acc5.global_avg
 
 def resolution_evaluate(model_state_dict, criterion, device, num_classes, val_resize_resolutions,  args) :
-    dict_results = {}
 
     # In evaluation, set training architecture modifications to 0
     args.first_conv_resize = 0
@@ -152,14 +151,24 @@ def resolution_evaluate(model_state_dict, criterion, device, num_classes, val_re
         model_without_ddp = model.module
     
     model_without_ddp.load_state_dict(torch.load(model_state_dict)["model"])
+
+    val_crop_resolutions = list(set(val_crop_resolutions))
+    val_crop_resolutions.sort()
+
+    dict_results = {}
     dict_results["best_acc1"] = 0
     dict_results["best_crop"] = 0
     dict_results["best_resize"] = 0
-    for val_crop_resolution in list(set(val_crop_resolutions)).sort() :
-        val_resize_resolutions = [val_crop_resolution - 8, val_crop_resolution - 16, val_crop_resolution + 8, val_crop_resolution + 16,  val_crop_resolution + 24, val_crop_resolution, int(val_crop_resolution*232/224)].sort()
-        dict_results[str(val_crop_resolution)] = {}
+
+    for val_crop_resolution in val_crop_resolutions :
+
+        val_resize_resolutions = [val_crop_resolution - 8, val_crop_resolution - 16, val_crop_resolution + 8, val_crop_resolution + 16,  val_crop_resolution + 24, val_crop_resolution, int(val_crop_resolution*232/224)]
+        val_resize_resolutions.sort()
+        
+        dict_results[val_crop_resolution] = {}
         dict_results[val_crop_resolution]["best_acc1"] = 0
         dict_results[val_crop_resolution]["best_resize"] = 0
+
         for val_resize_resolution in val_resize_resolutions :
             print("Dataset loading :", val_crop_resolution, val_resize_resolution)
 
