@@ -139,7 +139,7 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix="
     return metric_logger.acc1.global_avg, metric_logger.acc5.global_avg
 
 def resolution_evaluate(model_state_dict, criterion, device, num_classes, val_resize_resolutions,  args) :
-    all_results = []
+    dict_results = {}
 
     # In evaluation, set training architecture modifications to 0
     args.first_conv_resize = 0
@@ -153,8 +153,9 @@ def resolution_evaluate(model_state_dict, criterion, device, num_classes, val_re
     
     model_without_ddp.load_state_dict(torch.load(model_state_dict)["model"])
     
-    for val_crop_resolution in list(set(val_crop_resolutions)) :
-        global_results = []
+    for val_crop_resolution in list(set(val_crop_resolutions)).sort() :
+        val_resize_resolutions = [val_crop_resolution - 8, val_crop_resolution - 16, val_crop_resolution + 8, val_crop_resolution + 16,  val_crop_resolution + 24, val_crop_resolution, int(val_crop_resolution*232/224)].sort()
+        dict_results[str(val_crop_resolution)] = {}
         for val_resize_resolution in val_resize_resolutions :
             print("Dataset loading :", val_crop_resolution, val_resize_resolution)
 
@@ -166,16 +167,14 @@ def resolution_evaluate(model_state_dict, criterion, device, num_classes, val_re
 
             # Evaluate on all models
             results = evaluate(model, criterion, data_loader_test, device)
-            
-            global_results.append(results)
-        all_results.append(global_results)
-    save_tensor = torch.tensor(all_results)
+            dict_results[val_crop_resolution][val_resize_resolution] = results
+
 
     if utils.is_main_process() :
-        torch.save(save_tensor, os.path.join(args.output_dir, "resolution.pth"))
+        torch.save(dict_results, os.path.join(args.output_dir, "resolution.pth"))
         os.chmod(os.path.join(args.output_dir, "resolution.pth"), stat.S_IRWXU | stat.S_IRWXO)
 
-    return all_results, val_crop_resolutions, val_resize_resolution
+    return dict_results, val_crop_resolutions, val_resize_resolution
 
 def _get_cache_path(filepath):
     import hashlib
@@ -583,7 +582,7 @@ def main(args):
     # Evaluate the model on a range of crop and resize resolutions
     val_resize_resolutions = [120, 136, 152, 168, 184, 200, 216, 232, 248, 264, 280, 296, 312, 328, 344, 360]
 
-    results, val_crop_resolutions, val_resize_resolution = resolution_evaluate(os.path.join(args.output_dir, f"checkpoint.pth"), criterion, device, num_classes, val_resize_resolutions,  args)
+    results, val_crop_resolutions, val_resize_resolutions = resolution_evaluate(os.path.join(args.output_dir, f"checkpoint.pth"), criterion, device, num_classes, val_resize_resolutions,  args)
     
     if utils.is_main_process():
         logger.log({"acc_resolutions": results, "val_crop_resolutions": val_crop_resolutions, "val_resize_resolution": val_resize_resolutions})
