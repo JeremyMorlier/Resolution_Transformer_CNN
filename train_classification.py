@@ -27,7 +27,7 @@ def get_param_model(args, num_classes) :
     
     # Evaluate all wanted resolutions of the model
     if "vit" not in args.model :
-        val_crop_resolutions = [112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304, 320, 336, 352]
+        val_crop_resolutions = [82, 98, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304, 320, 336, 352]
     else :
         val_crop_resolutions = [args.img_size]
     val_crop_resolutions.append(args.val_crop_size)
@@ -162,7 +162,7 @@ def resolution_evaluate(model_state_dict, criterion, device, num_classes, val_re
 
     for val_crop_resolution in val_crop_resolutions :
 
-        val_resize_resolutions = [val_crop_resolution - 8, val_crop_resolution - 16, val_crop_resolution + 8, val_crop_resolution + 16,  val_crop_resolution + 24, val_crop_resolution, int(val_crop_resolution*232/224)]
+        val_resize_resolutions = [val_crop_resolution - 8, val_crop_resolution - 16, val_crop_resolution + 8, val_crop_resolution + 16,  val_crop_resolution + 24, val_crop_resolution + 32, val_crop_resolution, int(val_crop_resolution*232/224)]
         val_resize_resolutions.sort()
         
         dict_results[val_crop_resolution] = {}
