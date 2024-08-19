@@ -160,6 +160,7 @@ def resolution_evaluate(model_state_dict, device, num_classes, args) :
 
     all_results = []
 
+    best_result, best_resolution = 0, 0
     # In evaluation, set training architecture modifications to 0
     args.first_conv_resize = 0
     model, memories, flops_list, val_crop_resolutions = get_param_model(args, num_classes=num_classes)
@@ -191,6 +192,9 @@ def resolution_evaluate(model_state_dict, device, num_classes, args) :
         # Evaluate the model at specific resolution
         confmat = evaluate(model, data_loader_test, device=device, num_classes=num_classes, exclude_classes=args.exclude_classes)
         confmat.compute()
+        if confmat.mIOU_reduced >= best_result :
+            best_result = confmat.mIOU_reduced
+            best_resolution = val_resize_resolution
         results = [image_size[1], confmat.acc_global.item(), confmat.meanIU,confmat.mIOU_reduced]
 
         print(results)
@@ -200,7 +204,7 @@ def resolution_evaluate(model_state_dict, device, num_classes, args) :
     torch.save(save_tensor, os.path.join(args.output_dir, "resolution.pth"))
     os.chmod(os.path.join(args.output_dir, "resolution.pth"), stat.S_IRWXU | stat.S_IRWXO)
 
-    return all_results
+    return all_results, best_result, best_resolution
 
 def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler, device, epoch, print_freq, scaler=None):
     model.train()
@@ -420,9 +424,9 @@ def main(args):
     print(f"Training time {total_time_str}")
 
     # Evaluate the trained model at different resolutions
-    all_results = resolution_evaluate(os.path.join(args.output_dir, f"checkpoint.pth"), device, num_classes, args)
+    all_results, best_result, best_resolution = resolution_evaluate(os.path.join(args.output_dir, f"checkpoint.pth"), device, num_classes, args)
     if utils.is_main_process() :
-        logger.log({"evaluations": all_results})
+        logger.log({"evaluations": all_results,"best_result":best_result, "best_res": best_resolution})
 
     if utils.is_main_process() :
         logger.finish()
