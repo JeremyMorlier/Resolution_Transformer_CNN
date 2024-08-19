@@ -100,14 +100,16 @@ class RegSeg_model(nn.Module):
                 self.load_state_dict(dic,strict=True)
 
 
-    def forward(self,x):
-        input_shape=x.shape[-2:]
+    def forward(self,x, shape=None):
+        output_shape=x.shape[-2:]
+        if shape :
+            output_shape = shape
         # Encoder starts here
         x=self.stem(x)
         x=self.body(x)
         # Decoder starts here
         x=self.decoder(x)
-        x = F.interpolate(x, size=input_shape, mode='bilinear', align_corners=False)
+        x = F.interpolate(x, size=output_shape, mode='bilinear', align_corners=False)
 
         # Torchvision compatible output
         result = OrderedDict()

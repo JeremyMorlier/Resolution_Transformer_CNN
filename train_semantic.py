@@ -127,7 +127,7 @@ def evaluate(model, data_loader, device, num_classes, exclude_classes):
     with torch.inference_mode():
         for image, target in metric_logger.log_every(data_loader, 100, header):
             image, target = image.to(device), target.to(device)
-            output = model(image)
+            output = model(image, shape=target.shape[-2:])
             output = output["out"]
 
             confmat.update(target.flatten(), output.argmax(1).flatten())
@@ -169,12 +169,12 @@ def resolution_evaluate(model_state_dict, device, num_classes, args) :
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
     model_without_ddp.load_state_dict(torch.load(model_state_dict)["model"])
-
+    args.val_label_size = 1024
     for val_resize_resolution in val_resize_resolutions :
         print("Dataset loading :", val_resize_resolution)
 
         # Load Dataset with desired validation resolution
-        args.val_input_size, args.val_label_size = val_resize_resolution, val_resize_resolution
+        args.val_input_size = val_resize_resolution
         dataset_test, _ = get_dataset(args, is_train=False)
         if args.distributed:
             test_sampler = torch.utils.data.distributed.DistributedSampler(dataset_test, shuffle=False)
@@ -191,7 +191,7 @@ def resolution_evaluate(model_state_dict, device, num_classes, args) :
         # Evaluate the model at specific resolution
         confmat = evaluate(model, data_loader_test, device=device, num_classes=num_classes, exclude_classes=args.exclude_classes)
         confmat.compute()
-        results = [image_size[1], image_size[1], confmat.acc_global.item(), confmat.meanIU,confmat.mIOU_reduced]
+        results = [image_size[1], confmat.acc_global.item(), confmat.meanIU,confmat.mIOU_reduced]
 
         print(results)
         all_results.append(results)
@@ -210,7 +210,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler, devi
     for image, target in metric_logger.log_every(data_loader, print_freq, header):
         image, target = image.to(device), target.to(device)
         with torch.cuda.amp.autocast(enabled=scaler is not None):
-            output = model(image)
+            output = model(image, shape=target.shape[-2:])
             loss = criterion(output, target)
 
         optimizer.zero_grad()
