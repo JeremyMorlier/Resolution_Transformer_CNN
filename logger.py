@@ -5,6 +5,8 @@ import argparse
 import json
 import wandb
 
+import time
+
 from references.common import create_dir
 
 class Logger() :
@@ -16,6 +18,8 @@ class Logger() :
         self.mode = mode
         self.id = id
 
+        args.timestamp = time.time()
+        print(args)
         if mode == "wandb" :
             
             wandb_resume = None
