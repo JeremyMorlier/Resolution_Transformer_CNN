@@ -26,7 +26,8 @@ __all__ = [
     "vit_l_16",
     "vit_l_32",
     "vit_h_14",
-    "vit_custom"
+    "vit_custom",
+    "interpolate_embeddings"
 ]
 
 
@@ -287,7 +288,7 @@ class VisionTransformer(nn.Module):
 
         return x
 
-    def forward(self, x: torch.Tensor):
+    def backbone_forward(self, x: torch.Tensor) :
         # Reshape and permute the input tensor
         x = self._process_input(x)
         n = x.shape[0]
@@ -297,14 +298,26 @@ class VisionTransformer(nn.Module):
         x = torch.cat([batch_class_token, x], dim=1)
 
         x = self.encoder(x)
-
+        
+        return x
+     
+    def get_patch_tokens(self, x: torch.Tensor, reshape: bool = False) :
+        output = self.backbone_forward(x)
+        class_token = output[:, 0]
+        outputs = output[:, 1:]
+        if reshape :
+            B, _, w, h = x.shape
+            outputs = outputs.reshape(B, w // self.patch_size, h // self.patch_size, -1).permute(0, 3, 1, 2).contiguous()
+        return outputs
+    
+    def forward(self, x: torch.Tensor):
+        x = self.backbone_forward(x)
         # Classifier "token" as used by standard language architectures
         x = x[:, 0]
 
         x = self.heads(x)
 
         return x
-
 
 def _vision_transformer(
     patch_size: int,

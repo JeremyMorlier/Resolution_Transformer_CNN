@@ -55,7 +55,7 @@ if __name__ == "__main__" :
     args.name = get_name(args)
     output_dir = os.path.join(args.output_dir, args.name)
     create_dir(output_dir)
-    if args.resume :
+    if args.resume == "checkpoint.pth" :
         args.resume = output_dir + "/" + args.resume
 
     script_args = extract_script_args(args)

@@ -63,6 +63,15 @@ WANDB_DIR=../wandb WANDB_CACHE_DIR=../cache/ python3  train_semantic.py --output
 --model regseg_custom --regseg_name exp48_decoder26 --regseg_gw 16 --regseg_channels 32 24 64 128 320 \
 --epochs 1000 --momentum 0.9  --lr 0.05 -b 8 --wd 0.0001 --lr_warmup_epochs 9 --lr_warmup_method linear --lr_warmup_start_factor 0.1 
 ```
+
+Vit For Semantic Segmentation: 
+Trained a pretrained ViT on imagenet on Semantic Segmentation dataset(currently Cityscapes)
+```bash
+python3 train_vit_semantic.py --output_dir /nasbrain/j20morli/results/ \
+--dataset cityscapes --data_path /nasbrain/datasets/cityscapes/ --exclude_classes 14 15 16 --scale_low_size 400 --scale_high_size 1600 --random_crop_size 1024 --val_input_size 1024 --val_label_size 1024 --augmode randaug_reduced \
+--model vit_custom --patch_size 16 --num_layers 12 --num_heads 12 --hidden_dim 384 --mlp_dim 1536 --img_size 1024 --resume /nasbrain/j20morli/jeanzay/results_resolution/vit_custom_16_12_12_384_1536_176/checkpoint.pth \
+--epochs 200 --momentum 0.9 --lr_scheduler poly --lr 0.2 -b 4 --lr_warmup_epochs 9 --lr_warmup_method linear --lr_warmup_start_factor 0.1
+```
 ## Segment Anything Distillation
 ```bash
 python3 distillation_sam.py --optim adamw --learning_rate 0.001 --weight_decay 0.0005 --epochs 8 --batch_size 8 --model mobilesam_vit\

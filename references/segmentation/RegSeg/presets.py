@@ -14,7 +14,20 @@ def build_val_transform(val_input_size,val_label_size):
         std
     ))
     return T.Compose(transforms)
-    
+
+def build_val_transform2(val_input_size,val_label_size):
+    mean = (0.485, 0.456, 0.406)
+    std = (0.229, 0.224, 0.225)
+    transforms=[]
+    transforms.append(
+        T.CenterCropLabel(val_label_size,val_label_size, False)
+    )
+    transforms.append(T.ToTensor())
+    transforms.append(T.Normalize(
+        mean,
+        std
+    ))
+    return T.Compose(transforms)
 def build_train_transform2(train_min_size, train_max_size, train_crop_size, aug_mode,ignore_value):
     mean = (0.485, 0.456, 0.406)
     std = (0.229, 0.224, 0.225)

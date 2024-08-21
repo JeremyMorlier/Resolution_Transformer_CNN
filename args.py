@@ -71,6 +71,13 @@ def common_args_parser(parser) :
     # Resolution scaling specific arguments
     parser.add_argument("--first_conv_resize", default=0, type=int, help="if different than 0 rescale the input activations after the first convolution")
 
+    # ViT Specific Args
+    parser.add_argument("--patch_size",  default=16, type=int, help="ViT patch size(default to vit_b_16)")
+    parser.add_argument("--num_layers",  default=12, type=int, help="ViT number of layers (default to vit_b_16)")
+    parser.add_argument("--num_heads",  default=12, type=int, help="ViT number of Attention heads (default to vit_b_16)")
+    parser.add_argument("--hidden_dim",  default=768, type=int, help="ViT hidden dimension (default to vit_b_16)")
+    parser.add_argument("--mlp_dim",  default=3072, type=int, help="ViT hidden mlp dimension (default to vit_b_16)")
+    parser.add_argument("--img_size",  default=224, type=int, help="ViT img size (default to vit_b_16)")
 def classification_args_parser(parser):
 
     parser.add_argument("--opt", default="sgd", type=str, help="optimizer")
@@ -154,14 +161,6 @@ def classification_args_parser(parser):
     # Resnet Specific args
     parser.add_argument("--channels",default=None,  nargs="+", type=int, help="channels of ResNet")
     parser.add_argument("--depths", default=None, nargs="+", type=int, help="layers depths of ResNet")
-
-    # ViT Specific Args
-    parser.add_argument("--patch_size",  default=16, type=int, help="ViT patch size(default to vit_b_16)")
-    parser.add_argument("--num_layers",  default=12, type=int, help="ViT number of layers (default to vit_b_16)")
-    parser.add_argument("--num_heads",  default=12, type=int, help="ViT number of Attention heads (default to vit_b_16)")
-    parser.add_argument("--hidden_dim",  default=768, type=int, help="ViT hidden dimension (default to vit_b_16)")
-    parser.add_argument("--mlp_dim",  default=3072, type=int, help="ViT hidden mlp dimension (default to vit_b_16)")
-    parser.add_argument("--img_size",  default=224, type=int, help="ViT img size (default to vit_b_16)")
 
 def semantic_segmentation_args_parser(parser):
 
