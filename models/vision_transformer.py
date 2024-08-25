@@ -311,10 +311,10 @@ class VisionTransformer(nn.Module):
     #     return outputs
     
     def forward(self, x: torch.Tensor, return_patch=False, reshape=False):
-        x = self.backbone_forward(x)
+        feats = self.backbone_forward(x)
         # Classifier "token" as used by standard language architectures
-        class_token = x[:, 0]
-        outputs = x[:, 1:]
+        class_token = feats[:, 0]
+        outputs = feats[:, 1:]
 
         if return_patch :
             if reshape :
@@ -322,9 +322,9 @@ class VisionTransformer(nn.Module):
                 outputs = outputs.reshape(B, w // self.patch_size, h // self.patch_size, -1).permute(0, 3, 1, 2).contiguous()
             return outputs
 
-        x = self.heads(class_token)
+        class_token = self.heads(class_token)
 
-        return x
+        return class_token
 
 def _vision_transformer(
     patch_size: int,
