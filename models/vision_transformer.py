@@ -301,21 +301,28 @@ class VisionTransformer(nn.Module):
         
         return x
      
-    def get_patch_tokens(self, x: torch.Tensor, reshape: bool = False) :
-        output = self.backbone_forward(x)
-        class_token = output[:, 0]
-        outputs = output[:, 1:]
-        if reshape :
-            B, _, w, h = x.shape
-            outputs = outputs.reshape(B, w // self.patch_size, h // self.patch_size, -1).permute(0, 3, 1, 2).contiguous()
-        return outputs
+    # def get_patch_tokens(self, x: torch.Tensor, reshape: bool = False) :
+    #     output = self.backbone_forward(x)
+    #     class_token = output[:, 0]
+    #     outputs = output[:, 1:]
+    #     if reshape :
+    #         B, _, w, h = x.shape
+    #         outputs = outputs.reshape(B, w // self.patch_size, h // self.patch_size, -1).permute(0, 3, 1, 2).contiguous()
+    #     return outputs
     
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, return_patch=False, reshape=False):
         x = self.backbone_forward(x)
         # Classifier "token" as used by standard language architectures
-        x = x[:, 0]
+        class_token = x[:, 0]
+        outputs = x[:, 1:]
 
-        x = self.heads(x)
+        if return_patch :
+            if reshape :
+                B, _, w, h = x.shape
+                outputs = outputs.reshape(B, w // self.patch_size, h // self.patch_size, -1).permute(0, 3, 1, 2).contiguous()
+            return outputs
+
+        x = self.heads(class_token)
 
         return x
 

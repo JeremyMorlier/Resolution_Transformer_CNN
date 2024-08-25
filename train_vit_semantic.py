@@ -110,7 +110,7 @@ def evaluate(model, head, data_loader, device, num_classes, exclude_classes):
     with torch.inference_mode():
         for image, target in metric_logger.log_every(data_loader, 100, header):
             image, target = image.to(device), target.to(device)
-            feats = model.get_patch_tokens(image, reshape=True)
+            feats = model(image, return_patch=True, reshape=True)
 
             output = head(feats)
 
@@ -147,7 +147,7 @@ def train_one_epoch(model, head, criterion, optimizer, data_loader, lr_scheduler
     for i, (image, target) in enumerate(data_loader) :
         image, target = image.to(device), target.to(device)
         with torch.cuda.amp.autocast(enabled=scaler is not None):
-            feats = model.get_patch_tokens(image, reshape=True)
+            feats = model(image, return_patch=True, reshape=True)
             output = head(feats)
 
             loss = criterion(output, target)
