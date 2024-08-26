@@ -483,26 +483,3 @@ class CenterCrop(object) :
         if centroid is not None:
             target=(target,centroid)
         return image, target
-
-class Resize(object):
-    def __init__(self, size):
-        self.size = size
-
-    def __call__(self, image, target):
-
-        size=self.size
-
-        if isinstance(target, tuple) or isinstance(target,list):
-            target,centroid=target
-        else:
-            centroid=None
-
-        if centroid is not None:
-            w,h=target.size
-            scale=size/min(w,h)
-            centroid = [int(c * scale) for c in centroid]
-        image = F.resize(image, size)
-        target = F.resize(target, size, interpolation=F.InterpolationMode.NEAREST)
-        if centroid is not None:
-            target=(target,centroid)
-        return image, target
