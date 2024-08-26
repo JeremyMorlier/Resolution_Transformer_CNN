@@ -190,7 +190,7 @@ def semantic_segmentation_args_parser(parser):
     parser.add_argument('--regseg_gw', type=int, default=0,  help="RegSeg gw")
 
 def vit_segmentation_args_parser(parser) :
-    parser.add_argument('--cityscapes_size', type=int, default=0,  help="Size to evaluate and train Cityscapes")
+    parser.add_argument('--cityscapes_size', type=int, default=1024,  help="Size to evaluate and train Cityscapes")
 
 def get_classification_argsparse(add_help=True) :
     parser = argparse.ArgumentParser(description="PyTorch Classification Training", add_help=add_help)
