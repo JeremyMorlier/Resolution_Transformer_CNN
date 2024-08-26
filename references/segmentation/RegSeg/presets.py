@@ -20,7 +20,7 @@ def build_val_transform2(val_input_size,val_label_size):
     std = (0.229, 0.224, 0.225)
     transforms=[]
     transforms.append(
-        T.CenterCropLabel(val_label_size,val_label_size, False)
+        T.CenterCrop(val_label_size)
     )
     transforms.append(T.ToTensor())
     transforms.append(T.Normalize(

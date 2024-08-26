@@ -462,3 +462,47 @@ class RandomCenterLabelCrop(object):
             image_cropped = F.crop(image, top, left, height, width)
             label_cropped = F.crop(label, top, left, height, width)
             return image_cropped, label_cropped
+        
+class CenterCrop(object) :
+    def __init__(self, crop_size) :
+        self.crop_size = crop_size
+    def __call__(self, image, target) :
+
+        if isinstance(target, tuple) or isinstance(target, list) :
+            target, centroid = target
+        else :
+            centroid = None
+
+        if centroid is not None:
+            w,h=target.size
+            scale=self.crop_size/min(w,h)
+            centroid = [int(c * scale) for c in centroid]
+
+        image = F.center_crop(image, self.crop_size)
+        target = F.center_crop(target, self.crop_size)
+        if centroid is not None:
+            target=(target,centroid)
+        return image, target
+
+class Resize(object):
+    def __init__(self, size):
+        self.size = size
+
+    def __call__(self, image, target):
+
+        size=self.size
+
+        if isinstance(target, tuple) or isinstance(target,list):
+            target,centroid=target
+        else:
+            centroid=None
+
+        if centroid is not None:
+            w,h=target.size
+            scale=size/min(w,h)
+            centroid = [int(c * scale) for c in centroid]
+        image = F.resize(image, size)
+        target = F.resize(target, size, interpolation=F.InterpolationMode.NEAREST)
+        if centroid is not None:
+            target=(target,centroid)
+        return image, target
