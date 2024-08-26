@@ -20,7 +20,7 @@ from references.common import get_name, init_signal_handler
 
 from logger import Logger
 
-from args import get_segmentation_argsparse
+from args import get_vitsegmentation_argsparse
 from memory_flops import get_memory_flops
 
 from models.segmentation.setr import Naive_Head
@@ -370,8 +370,12 @@ def main(args) :
         logger.finish()
 
 if __name__ == "__main__":
-    args, unknown_args = get_segmentation_argsparse().parse_known_args()
+    args, unknown_args = get_vitsegmentation_argsparse().parse_known_args()
 
     args.name = get_name(args)
+    args.random_crop_size = args.cityscapes_size
+    args.val_input_size = args.cityscapes_size
+    args.val_label_size = args.cityscapes_size
+    args.img_size = args.cityscapes_size
 
     main(args)

@@ -17,6 +17,7 @@ def slurm_args_parser(parser) :
 
     parser.add_argument("--script", type=str, default="train_classification.py", help="python script to launch")
     parser.add_argument("--add_resume", action="store_true", help="Add Resume to existing run in file")
+
 def common_args_parser(parser) :
     parser.add_argument("--data_path", default="/datasets01/imagenet_full_size/061417/", type=str, help="dataset path")
 
@@ -78,6 +79,7 @@ def common_args_parser(parser) :
     parser.add_argument("--hidden_dim",  default=768, type=int, help="ViT hidden dimension (default to vit_b_16)")
     parser.add_argument("--mlp_dim",  default=3072, type=int, help="ViT hidden mlp dimension (default to vit_b_16)")
     parser.add_argument("--img_size",  default=224, type=int, help="ViT img size (default to vit_b_16)")
+
 def classification_args_parser(parser):
 
     parser.add_argument("--opt", default="sgd", type=str, help="optimizer")
@@ -187,6 +189,9 @@ def semantic_segmentation_args_parser(parser):
     parser.add_argument('--regseg_channels', nargs='+', type=int, default=None, help="RegSeg channels list")
     parser.add_argument('--regseg_gw', type=int, default=0,  help="RegSeg gw")
 
+def vit_segmentation_args_parser(parser) :
+    parser.add_argument('--cityscapes_size', type=int, default=0,  help="Size to evaluate and train Cityscapes")
+
 def get_classification_argsparse(add_help=True) :
     parser = argparse.ArgumentParser(description="PyTorch Classification Training", add_help=add_help)
 
@@ -201,6 +206,14 @@ def get_segmentation_argsparse(add_help=True) :
     semantic_segmentation_args_parser(parser)  
     return parser
 
+def get_vitsegmentation_argsparse(add_help=True) :
+    parser = argparse.ArgumentParser(description="PyTorch Segmentation Training", add_help=add_help)
+
+    common_args_parser(parser)
+    semantic_segmentation_args_parser(parser)
+    vit_segmentation_args_parser(parser)
+    return parser
+
 def get_slurm_scheduler_argsparse(add_help=True) :
     parser = argparse.ArgumentParser(description="Slurm launcher, facilitates the deploiement of this repo training scripts to slurm environments", add_help=add_help)
 
@@ -208,6 +221,7 @@ def get_slurm_scheduler_argsparse(add_help=True) :
     slurm_args_parser(parser)
     classification_args_parser(parser)
     semantic_segmentation_args_parser(parser)
+    vit_segmentation_args_parser(parser)
     return parser
 
 # Test
