@@ -158,9 +158,6 @@ def resolution_evaluate(model_state_dict, device, num_classes, args) :
 
     val_resize_resolutions = [128, 256, 384, 512, 640, 768, 896, 1024, 1280, 1536]
 
-    all_results = []
-
-    best_result, best_resolution = 0, 0
     # In evaluation, set training architecture modifications to 0
     args.first_conv_resize = 0
     model, memories, flops_list, val_crop_resolutions = get_param_model(args, num_classes=num_classes)
@@ -170,7 +167,13 @@ def resolution_evaluate(model_state_dict, device, num_classes, args) :
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
     model_without_ddp.load_state_dict(torch.load(model_state_dict)["model"])
+
     args.val_label_size = 1024
+
+    dict_results = {}
+    dict_results["best_mIOU"] = 0
+    dict_results["best_resize"] = 0
+
     for val_resize_resolution in val_resize_resolutions :
         print("Dataset loading :", val_resize_resolution)
 
@@ -187,24 +190,17 @@ def resolution_evaluate(model_state_dict, device, num_classes, args) :
         )
 
         print(f"Dataset loaded")
-        image_size = dataset_test[0][0].size()
 
         # Evaluate the model at specific resolution
         confmat = evaluate(model, data_loader_test, device=device, num_classes=num_classes, exclude_classes=args.exclude_classes)
         confmat.compute()
-        if confmat.mIOU_reduced >= best_result :
-            best_result = confmat.mIOU_reduced
-            best_resolution = val_resize_resolution
-        results = [image_size[1], confmat.acc_global.item(), confmat.meanIU,confmat.mIOU_reduced]
 
-        print(results)
-        all_results.append(results)
+        dict_results[val_resize_resolution] = [confmat.acc_global.item(), confmat.meanIU, confmat.iu.tolist(), confmat.mIOU_reduced]
+        if confmat.mIOU_reduced >= dict_results["best_mIOU"] :
+            dict_results["best_mIOU"] = confmat.mIOU_reduced
+            dict_results["best_resize"] = val_resize_resolution
 
-    save_tensor = torch.tensor(all_results)
-    torch.save(save_tensor, os.path.join(args.output_dir, "resolution.pth"))
-    os.chmod(os.path.join(args.output_dir, "resolution.pth"), stat.S_IRWXU | stat.S_IRWXO)
-
-    return all_results, best_result, best_resolution
+    return dict_results, val_resize_resolutions
 
 def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler, device, epoch, print_freq, scaler=None):
     model.train()
@@ -424,9 +420,10 @@ def main(args):
     print(f"Training time {total_time_str}")
 
     # Evaluate the trained model at different resolutions
-    all_results, best_result, best_resolution = resolution_evaluate(os.path.join(args.output_dir, f"checkpoint.pth"), device, num_classes, args)
+    dict_result, val_resizes = resolution_evaluate(os.path.join(args.output_dir, f"checkpoint.pth"), device, num_classes, args)
     if utils.is_main_process() :
-        logger.log({"evaluations": all_results,"best_result":best_result, "best_res": best_resolution})
+        logger.log({"evaluations": dict_result})
+        logger.log({"val_resizes": val_resizes})
 
     if utils.is_main_process() :
         logger.finish()
