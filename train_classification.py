@@ -24,16 +24,6 @@ from args import get_classification_argsparse
 from memory_flops import get_memory_flops
 
 def get_param_model(args, num_classes) :
-    
-    # Evaluate all wanted resolutions of the model
-    if "vit" not in args.model :
-        val_crop_resolutions = [82, 98, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304, 320, 336, 352]
-    else :
-        val_crop_resolutions = [args.img_size]
-    val_crop_resolutions.append(args.val_crop_size)
-
-    memories = []
-    flops_list = []
 
     if args.model == "resnet50_resize" :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes, first_conv_resize=args.first_conv_resize, channels=args.channels, depths=args.depths)
@@ -42,11 +32,26 @@ def get_param_model(args, num_classes) :
     else :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes)
 
+    # Evaluate Model on a range of crops
+    memories = []
+    total_memories = []
+    flops_list = []
+    model_sizes = []
+    
+    if "vit" not in args.model :
+        val_crop_resolutions = [82, 98, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304, 320, 336, 352]
+    else :
+        val_crop_resolutions = [args.img_size]
+    val_crop_resolutions.append(args.val_crop_size)
+    
     for val_crop_resolution in val_crop_resolutions :
-        memory, flops = get_memory_flops(model, val_crop_resolution, args)
+        memory, flops, total_memory, model_size = get_memory_flops(model, val_crop_resolution, args)
         memories.append(memory)
         flops_list.append(flops)
-    return model, memories, flops_list, val_crop_resolutions
+        total_memories.append(total_memory)
+        model_sizes.append(model_size)
+
+    return model, memories, flops_list, val_crop_resolutions, total_memories, model_sizes
 
 def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args, model_ema=None, scaler=None):
     model.train()
@@ -142,7 +147,7 @@ def resolution_evaluate(model_state_dict, criterion, device, num_classes, val_re
 
     # In evaluation, set training architecture modifications to 0
     args.first_conv_resize = 0
-    model, memory, flops, val_crop_resolutions = get_param_model(args, num_classes=num_classes)
+    model, memory, flops, val_crop_resolutions, _, _ = get_param_model(args, num_classes=num_classes)
     model.to(device)
 
     model_without_ddp = model
@@ -416,14 +421,16 @@ def main(args):
     )
     print(num_classes)
     print("Creating model")
-    model, memory, flops, val_crop_resolutions = get_param_model(args, num_classes=num_classes)
-    model.to(device)
-
+    model, memories, flops_list, val_crop_resolutions, total_memories, model_sizes =  get_param_model(args, num_classes)
     if utils.is_main_process() :
-        print(memory, flops)
-        logger.log({"memory":memory})
-        logger.log({"model_ops":flops})
+        print(memories, flops_list)
+        logger.log({"memory":memories})
+        logger.log({"model_ops":flops_list})
+        logger.log({"total_memories":total_memories})
+        logger.log({"model_sizes":model_sizes})
         logger.log({"measured_crops":val_crop_resolutions})
+
+    model.to(device)
 
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)

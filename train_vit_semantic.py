@@ -61,7 +61,10 @@ def get_param_model(args, num_classes) :
 
     # Get memory and flops cost for each crop size
     memories = []
+    total_memories = []
     flops_list = []
+    model_sizes = []
+
     if "vit" not in args.model :
         val_crop_resolutions = [82, 98, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304, 320, 336, 352]
     else :
@@ -69,10 +72,13 @@ def get_param_model(args, num_classes) :
     val_crop_resolutions.append(args.random_crop_size)
 
     for val_crop_resolution in val_crop_resolutions :
-        memory, flops = get_memory_flops(model, val_crop_resolution, args)
+        memory, flops, total_memory, model_size = get_memory_flops(model, val_crop_resolution, args)
         memories.append(memory)
         flops_list.append(flops)
-    return model, memories, flops_list, val_crop_resolutions
+        total_memories.append(total_memory)
+        model_sizes.append(model_size)
+
+    return model, memories, flops_list, val_crop_resolutions, total_memories, model_sizes
 
 def get_transform(is_train, args):
     if args.dataset == "cityscapes" :
@@ -236,10 +242,14 @@ def main(args) :
     )
 
     # Create Model
-    backbone, memories, flops_list, val_crop_resolutions =  get_param_model(args, 1000)
+    backbone, memories, flops_list, val_crop_resolutions, total_memories, model_sizes =  get_param_model(args, 1000)
     if utils.is_main_process() :
         print(memories, flops_list)
-        logger.log({"memory":memories, "model_ops":flops_list, "measured_crops":val_crop_resolutions})
+        logger.log({"memory":memories})
+        logger.log({"model_ops":flops_list})
+        logger.log({"total_memories":total_memories})
+        logger.log({"model_sizes":model_sizes})
+        logger.log({"measured_crops":val_crop_resolutions})
 
     head = Naive_Head(args.hidden_dim, 19, args.random_crop_size)
 

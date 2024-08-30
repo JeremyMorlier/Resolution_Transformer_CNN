@@ -49,10 +49,15 @@ def get_memory_flops(model, resolution, args) :
     if "resnet" in args.model or "regseg" in args.model:
         info = summary(model, (1, 3, resolution, resolution), verbose=0, col_names=("output_size", "num_params", "mult_adds"))
         memory = info.max_memory
+        total_memory = info.total_output_bytes
+        model_size = info.total_param_bytes
         flops = 2 * info.total_mult_adds
     elif "vit" in args.model :
         patch_number = int(resolution * resolution / (args.patch_size * args.patch_size))
         flops = list(flops_per_sequence(args.patch_size, patch_number, args.num_layers, args.num_heads, args.hidden_dim, args.mlp_dim, 1000))
         memory = memory_per_sequence(resolution, patch_number, args.hidden_dim, args.mlp_dim)
+        # TODO: add total memory and model size to ViTs
+        total_memory = 0
+        model_size = 0
 
-    return memory, flops
+    return memory, flops, total_memory, model_size

@@ -79,14 +79,6 @@ def get_transform(is_train, args):
 
 def get_param_model(args, num_classes) :
 
-    memories = []
-    flops_list = []
-    # Evaluate Model on a range of crops
-    if "vit" not in args.model :
-        val_crop_resolutions = [128, 256, 384, 512, 640, 768, 896, 1024, 1280, 1536]
-    else :
-        val_crop_resolutions = [args.img_size]
-    val_crop_resolutions.append(args.random_crop_size)
 
 
     if args.model == "resnet50_resize" :
@@ -99,13 +91,27 @@ def get_param_model(args, num_classes) :
         model = get_model(args.model, weights=args.weights, weights_backbone=args.weights_backbone, num_classes=num_classes, aux_loss=args.aux_loss, regseg_name=args.regseg_name, channels=channels, gw=gw, first_conv_resize=args.first_conv_resize)
     else :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes)
+
+    # Evaluate Model on a range of crops
+    memories = []
+    total_memories = []
+    flops_list = []
+    model_sizes = []
+    
+    if "vit" not in args.model :
+        val_crop_resolutions = [128, 256, 384, 512, 640, 768, 896, 1024, 1280, 1536]
+    else :
+        val_crop_resolutions = [args.img_size]
+    val_crop_resolutions.append(args.random_crop_size)
     
     for val_crop_resolution in val_crop_resolutions :
-        memory, flops = get_memory_flops(model, val_crop_resolution, args)
+        memory, flops, total_memory, model_size = get_memory_flops(model, val_crop_resolution, args)
         memories.append(memory)
         flops_list.append(flops)
+        total_memories.append(total_memory)
+        model_sizes.append(model_size)
 
-    return model, memories, flops_list, val_crop_resolutions
+    return model, memories, flops_list, val_crop_resolutions, total_memories, model_sizes
 
 def criterion(inputs, target):
     losses = {}
@@ -160,7 +166,7 @@ def resolution_evaluate(model_state_dict, device, num_classes, args) :
 
     # In evaluation, set training architecture modifications to 0
     args.first_conv_resize = 0
-    model, memories, flops_list, val_crop_resolutions = get_param_model(args, num_classes=num_classes)
+    model, memories, flops_list, val_crop_resolutions, _, _ = get_param_model(args, num_classes=num_classes)
     model.to(device)
     model_without_ddp = model
     if args.distributed:
@@ -300,11 +306,13 @@ def main(args):
         dataset_test, batch_size=1, sampler=test_sampler, num_workers=args.workers, collate_fn=utils.collate_fn
     )
 
-    model, memories, flops_list, val_crop_resolutions =  get_param_model(args, num_classes)
+    model, memories, flops_list, val_crop_resolutions, total_memories, model_sizes =  get_param_model(args, num_classes)
     if utils.is_main_process() :
         print(memories, flops_list)
         logger.log({"memory":memories})
         logger.log({"model_ops":flops_list})
+        logger.log({"total_memories":total_memories})
+        logger.log({"model_sizes":model_sizes})
         logger.log({"measured_crops":val_crop_resolutions})
 
     model.to(device)
