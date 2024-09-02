@@ -574,7 +574,7 @@ def main(args):
         if model_ema:
             acc1_ema, acc5_ema = evaluate(model_ema, criterion, data_loader_test, device=device, log_suffix="EMA")
             if utils.is_main_process() :
-                logger.log({"ema acc1":acc1_ema, "ema acc5":acc5_ema})
+                logger.log({"ema acc1":acc1_ema, "ema acc5":acc5_ema, "cuda_memory_allocated":torch.cuda.memory_allocated(device)})
         if args.output_dir:
             print("Saving model")
             checkpoint = {

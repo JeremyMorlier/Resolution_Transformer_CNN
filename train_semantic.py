@@ -398,7 +398,7 @@ def main(args):
         confmat = evaluate(model, data_loader_test, device=device, num_classes=num_classes, exclude_classes=args.exclude_classes)
         confmat.compute()
         if utils.is_main_process() :
-            logger.log({"reduced_iu": confmat.reduced_iu, "mIOU_reduced": confmat.mIOU_reduced})
+            logger.log({"reduced_iu": confmat.reduced_iu, "mIOU_reduced": confmat.mIOU_reduced, "cuda_memory_allocated": torch.cuda.memory_allocated(device)})
         checkpoint = {
             "model": model_without_ddp.state_dict(),
             "optimizer": optimizer.state_dict(),
