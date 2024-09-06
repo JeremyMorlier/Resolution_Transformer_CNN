@@ -1,40 +1,34 @@
 import os, sys
 import numpy as np
-import argparse
 import random
 import cv2
 import json
 import time
-import wandb
+import datetime
+import warnings
 
 import torch
 import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
-import torch.backends.cudnn as cudnn 
 
-from torch import distributed as dist
-from torch.utils.data.distributed import DistributedSampler
+from logger import Logger
+from args import get_sam_argsparse
+import utils
 
-from torchvision_references.references.distillation_sam.common import parse_option, get_optimizer, get_scheduler, customized_mseloss, calculate_iou, find_center
-from torchvision_references.datasets.segment_anything_dataset import transform, sa1b_dataset, normal_distribution_dataset
-from torchvision_references.references.distillation_sam.adaptor import Resnet50_Adaptor
-from torchvision_references.models import get_model
+from datasets.segment_anything_dataset import transform, sa1b_dataset, normal_distribution_dataset
+from references.distillation_sam.common import get_optimizer, get_scheduler, customized_mseloss, calculate_iou, find_center
+from references.distillation_sam.adaptor import Resnet50_Adaptor
+import references.distillation_sam.utils_ade20k as utils_ade20k
+from models import get_model
 
-# Libraries for ADE20k evaluation
 import pickle as pkl
-import torchvision_references.references.distillation_sam.utils_ade20k as utils_ade20k
 import glob
 from mobile_sam import SamPredictor
 
-def evaluate_ADE20K(args, model) :
+def evaluate_ADE20K(args, backbone, device) :
 
     # Paths
     ade20k_path = args.ade_dataset
     index_file = 'ADE20K_2021_17_01/index_ade20k.pkl'
-
-    device = torch.device('cuda:0')
 
     # Load index file
     with open(os.path.join(ade20k_path, index_file), 'rb') as f:
@@ -42,8 +36,11 @@ def evaluate_ADE20K(args, model) :
 
     # Get original model and retrieve decoder
     sam = get_model("sam_vit_h", checkpoint = args.sam_checkpoint)
-    sam.image_encoder = model
     sam.to(device=device)
+    sam.image_encoder = backbone
+    if args.distributed :
+        sam = torch.nn.SyncBatchNorm.convert_sync_batchnorm(sam)
+        sam = torch.nn.parallel.DistributedDataParallel(sam, device_ids=[args.gpu], find_unused_parameters=True)
 
     iou_liste = []
     nb_crops = 0
@@ -52,7 +49,7 @@ def evaluate_ADE20K(args, model) :
         full_file_name = os.path.join(index_ade20k['folder'][i], index_ade20k['filename'][i])
         folder_name = os.path.join(ade20k_path,full_file_name.replace(".jpg", ''))
         folder_files = glob.glob(f"{folder_name}/*")
-        print(os.path.join(ade20k_path, full_file_name))
+        
         info = utils_ade20k.loadAde20K(os.path.join(ade20k_path, full_file_name))
         image = cv2.imread(info['img_name'])[:,:,::-1]
 
@@ -85,18 +82,23 @@ def evaluate_ADE20K(args, model) :
     print(mean)
     return mean
 
-def evaluate_against_sam(args, model, val_loader) :
-    device = torch.device('cuda:0')
+def evaluate_against_sam(args, model, val_loader, device) :
 
     # Get original model
     sam = get_model("sam_vit_h", checkpoint = args.sam_checkpoint)
     sam.to(device=device)
+    if args.distributed :
+        sam = torch.nn.SyncBatchNorm.convert_sync_batchnorm(sam)
+        sam = torch.nn.parallel.DistributedDataParallel(sam, device_ids=[args.gpu], find_unused_parameters=True)
     predictor = SamPredictor(sam)
 
     # Get original model and change encoder
     sam2 = get_model("sam_vit_h", checkpoint = args.sam_checkpoint)
     sam2.image_encoder = model
     sam2.to(device=device)
+    if args.distributed :
+        sam2 = torch.nn.SyncBatchNorm.convert_sync_batchnorm(sam2)
+        sam2 = torch.nn.parallel.DistributedDataParallel(sam2, device_ids=[args.gpu], find_unused_parameters=True)
     predictor2 = SamPredictor(sam2)
 
     iou_liste = []
@@ -134,22 +136,36 @@ def evaluate_against_sam(args, model, val_loader) :
     print("\n ", mean)
     return mean
 
-def test(args, model, test_loader, local_rank):
-    model.eval()
-    test_loss = 0
-    with torch.no_grad():
-        for idx, (imgs, target_feats, mask_paths) in enumerate(test_loader):
-            imgs, target_feats = imgs.cuda(local_rank), target_feats.cuda(local_rank)
-            pred_feats = model.module(imgs)
-            test_loss += customized_mseloss(pred_feats, target_feats).item()
+def train_epoch(model, optimizer, train_loader, device, epoch, total_iters) :
 
-    return test_loss / len(test_loader)
+    # training
+    model.train()
+    for batch_idx, (imgs, target_feats, mask_paths) in enumerate(train_loader):
+        total_iters += 1
+        
+        imgs, target_feats = imgs.to(device), target_feats.to(device)
+        optimizer.zero_grad()
+        pred_feats = model(imgs)
+        loss = customized_mseloss(pred_feats, target_feats)
+        loss.backward()
+        optimizer.step()
+        # loss = reduce_mean(loss, utils.get_world_size())
+        
+        # if is master process
+        if utils.is_main_process() :
+            #print training info
+            if (batch_idx + 1) % args.print_iters == 0:
+                print('Train Epoch: {} [{}/{} ({:.0f}%)]\tMSE Loss: {:.6f}'.format(
+                    epoch, batch_idx * len(imgs) * utils.get_world_size(), len(train_loader.dataset),
+                        100. * batch_idx / len(train_loader), loss.item()))
+            
+            # save model
+            if total_iters % args.save_iters == 0:
+                save_path = os.path.join(args.root_path, args.work_dir, args.save_dir, "iter_" + str(total_iters) + ".pth")
+                print("save model to {}".format(save_path))
+                torch.save(model.state_dict(), save_path)
 
-def reduce_mean(tensor, nprocs):
-    rt = tensor.clone()
-    dist.all_reduce(rt, op=dist.ReduceOp.SUM)
-    rt /= nprocs
-    return rt
+    return loss.item()
 
 def get_param_model(args) :
     if "sam" in args.model :
@@ -164,137 +180,103 @@ def get_param_model(args) :
     
     return model
 
-def main(args):
-
-    local_rank = int(os.environ["LOCAL_RANK"])
-    # multi gpu settings
-    torch.cuda.set_device(local_rank)
-    device = torch.device('cuda', local_rank)
-    torch.distributed.init_process_group(backend='nccl')
-
-    # file folder creating
-    if local_rank == 0:
-        if not os.path.exists(os.path.join(args.root_path, args.work_dir, args.save_dir)):
-            os.makedirs(os.path.join(args.root_path, args.work_dir, args.save_dir))
-        
-        if not os.path.exists(os.path.join(args.root_path, args.work_dir, args.log_dir)):
-            os.makedirs(os.path.join(args.root_path, args.work_dir, args.log_dir))
-
-    # seed setting
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(args.seed)
-        torch.cuda.manual_seed_all(args.seed)
-        cudnn.deterministic = args.deterministic
-        cudnn.benchmark = args.benchmark
+def main(args) :
+    utils.init_distributed_mode(args)
+    device = torch.device(args.device)
     
-    # dataset
+    # Signal Handler to automatically relaunch slurm job
+    utils.init_signal_handler()
+
+    # Folder Setup
+    utils.create_dir(args.output_dir)
+    args.output_dir = os.path.join(args.output_dir, args.name)
+    utils.create_dir(args.output_dir)
+
+    # log only on main process
+    if utils.is_main_process() :
+        # similar API to wandb except mode and log_dir
+        logger = Logger(project_name="distillation_sam",
+                run_name=args.name,
+                tags=["test1"],
+                resume=True,
+                args=args,
+                mode=args.logger,
+                log_dir=args.output_dir)
+        
+    # Dataset
     train_dirs = args.train_dirs
 
     train_dataset = sa1b_dataset(args.dataset_path, train_dirs, transform, feat_root=args.root_feat)
-
-    # training sampler
-    train_sampler = DistributedSampler(train_dataset)
-
-    # data loader
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size // dist.get_world_size(), shuffle=(train_sampler is None), num_workers=args.num_workers, sampler=train_sampler, drop_last=True)
+    if args.distributed :
+        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+    else :
+        train_sampler = torch.utils.data.RandomSampler(train_dataset)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None), num_workers=args.num_workers, sampler=train_sampler, drop_last=True)
 
     # model
     model = get_param_model(args)
     model.to(device)
-    model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True)
-    
+
+    model_without_ddp = model
+    if args.distributed :
+        model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
+        model_without_ddp = model.module
+
     # optimizer and scheduler
     optimizer = get_optimizer(args, model)
     scheduler = get_scheduler(args, optimizer)
 
-    total_iters = 0
-
-    if local_rank == 0:
+    if utils.is_main_process() == 0:
         init_time = time.time()
 
+    total_iters = 0
     for epoch in range(1, args.epochs + 1):
         # new epoch
-        if local_rank == 0:
+        if utils.is_main_process() == 0:
             print("------start epoch {}------".format(epoch), time.strftime("%d %b %Y %H:%M:%S", time.gmtime()))
-        train_sampler.set_epoch(epoch)
+            logger.log({"epoch": epoch})
+        if args.distributed :
+            train_sampler.set_epoch(epoch)
 
-        # training
-        model.train()
-        for batch_idx, (imgs, target_feats, mask_paths) in enumerate(train_loader):
-            total_iters += 1
-            
-            imgs, target_feats = imgs.to(device), target_feats.to(device)
-            optimizer.zero_grad()
-            pred_feats = model(imgs)
-            loss = customized_mseloss(pred_feats, target_feats)
-            loss.backward()
-            optimizer.step()
-            loss = reduce_mean(loss, dist.get_world_size())
-            
-            # if is master process
-            if local_rank == 0:
-                #print training info
-                if (batch_idx + 1) % args.print_iters == 0:
-                    print('Train Epoch: {} [{}/{} ({:.0f}%)]\tMSE Loss: {:.6f}'.format(
-                        epoch, batch_idx * len(imgs) * dist.get_world_size(), len(train_loader.dataset),
-                            100. * batch_idx / len(train_loader), loss.item()))
-                    wandb.log({"mse_loss":loss.item()})
-                    # writer.add_scalar("mse_loss", loss.item(), total_iters)
-                
-                # save model
-                if total_iters % args.save_iters == 0:
-                    save_path = os.path.join(args.root_path, args.work_dir, args.save_dir, "iter_" + str(total_iters) + ".pth")
-                    print("save model to {}".format(save_path))
-                    torch.save(model.state_dict(), save_path)
-
-        dist.barrier()
+        result = train_epoch(model, optimizer, train_loader, device, epoch, total_iters)
+        logger.log({"loss": result})
         scheduler.step()
-
-    if local_rank == 0:
-        # save final model
-        torch.save(model.module.state_dict(), os.path.join(args.root_path, args.work_dir, args.save_dir, "iter_final.pth"))
-
-        # Evaluate
-        model = get_param_model(args)
-        
-        model.load_state_dict(torch.load(os.path.join(args.root_path, args.work_dir, args.save_dir, "iter_final.pth")))
-        model.to(device)
-        model.eval()
-
-        if args.val_dirs != None :
-            print("Evaluate against ViT_H", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()))
-            val_dirs = args.val_dirs
-            val_dataset = sa1b_dataset(args.dataset_path, val_dirs)
-            val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=args.num_workers)
-            result = evaluate_against_sam(args, model, val_loader)
-            print("Evaluation finished: ", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()), " mIoU: ", result)
-            wandb.log({"ViT_H_mIoU":result})
-
-        if args.ade_dataset != None :
-            print("Evaluate on ADE20k", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()))
-            result = evaluate_ADE20K(args, model)
-            print("Evaluation on ADE20k finished: ", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()), " mIoU: ", result) 
-            wandb.log({"ADE20K_mIoU":result})
-        
-        training_time = time.time() - init_time
-        print("Training finished ! Training Time: ", training_time)
-        wandb.log({"training_time":training_time})
     
-if __name__ == "__main__":
-    args = parse_option()
-    name = str(args.model) + "_" + str(args.learning_rate) + str(args.batch_size) + "_" + str(args.epochs) + "_" + str(args.optim) +  "_" + str(args.learning_rate) +  "_" + str(args.weight_decay) + "_" + str(args.momentum)
-    wandb.init(
-    # set the wandb project where this run will be logged
-    project="Data_Distillation",
-    name=name,
-    tags=["SAM"],
+    if utils.is_main_process() :
+        torch.save(model_without_ddp.state_dict(), os.path.join(args.output_dir, "iter_final.pth"))
+
+    # Evaluate
+    model.eval()
+    if args.val_dirs != None :
+        print("Evaluate against ViT_H", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()))
+
+        # Dataset
+        val_dirs = args.val_dirs
+        val_dataset = sa1b_dataset(args.dataset_path, val_dirs)
+        if args.distributed :
+            train_sampler = torch.utils.data.distributed.DistributedSampler(val_dataset)
+        else :
+            train_sampler = torch.utils.data.RandomSampler(val_dataset)
+        val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False, sampler=train_sampler, num_workers=args.num_workers)
+
+        result = evaluate_against_sam(args, model_without_ddp, val_loader, device)
+        print("Evaluation finished: ", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()), " mIoU: ", result)
+        logger.log({"ViT_H_mIoU":result})
+
+    if args.ade_dataset != None :
+        print("Evaluate on ADE20k", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()))
+        result = evaluate_ADE20K(args, model_without_ddp, device)
+        print("Evaluation on ADE20k finished: ", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()), " mIoU: ", result) 
+        logger.log({"ADE20K_mIoU":result})
     
-    # track hyperparameters and run metadata
-    config=args
-    )
+    training_time = time.time() - init_time
+    print("Training finished ! Training Time: ", training_time)
+    logger.log({"training_time":training_time})
+
+    if utils.is_main_process() :
+        logger.finish()
+if __name__ == "__main__" :
+    args, unknown_args = get_sam_argsparse().parse_known_args()
+    args.name = "test"
     main(args)
-    wandb.finish()
