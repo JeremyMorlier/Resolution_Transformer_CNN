@@ -86,10 +86,11 @@ def args_parser(add_help=True) :
     parser = argparse.ArgumentParser(description="Logger Parser", add_help=add_help)
 
     parser.add_argument("--path", type=str, default="./default.log")
+    parser.add_argument("--tags", nargs='+', type=str, help="Add new args to Wandb runs")
 
     return parser
 
-def wandb_log(filepath) :
+def wandb_log(filepath, tags) :
     if os.path.isfile(filepath) :
 
         with open(filepath, "r") as file :
@@ -101,7 +102,7 @@ def wandb_log(filepath) :
             project_name = header["project_name"]
             run_name = header["run_name"]
             tags = header["tags"]
-            args = header["args"]
+            args = header["args"] + tags
             wandb.init(
                 project=project_name,
                 name=run_name,
@@ -114,17 +115,22 @@ def wandb_log(filepath) :
             wandb.finish()
     else :
         print("Log file does not exist")
+
 if __name__ == "__main__" :
 
     arguments, unknown = args_parser().parse_known_args()
-    if  os.path.isdir(arguments.path) :
+
+    # Process entire folder
+    if os.path.isdir(arguments.path) :
         print("Processing Folder")
         files_list = os.listdir(arguments.path)
         for filepath in files_list :
             print("Processing: ", filepath)
-            wandb_log(os.path.join(arguments.path, filepath))
+            wandb_log(os.path.join(arguments.path, filepath), arguments.tags)
+    
+    # Process one file
     elif os.path.isfile(arguments.path) :
         print("Processing: ", arguments.path)
-        wandb_log(arguments.path)
+        wandb_log(arguments.path, arguments.tags)
 
     

@@ -4,3 +4,4 @@ wandb
 checkpoints
 results
 logs
+slurm_scripts/resolution

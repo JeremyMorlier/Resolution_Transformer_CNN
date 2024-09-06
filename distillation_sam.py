@@ -183,7 +183,7 @@ def get_param_model(args) :
 def main(args) :
     utils.init_distributed_mode(args)
     device = torch.device(args.device)
-    
+
     # Signal Handler to automatically relaunch slurm job
     utils.init_signal_handler()
 
@@ -276,6 +276,7 @@ def main(args) :
 
     if utils.is_main_process() :
         logger.finish()
+        
 if __name__ == "__main__" :
     args, unknown_args = get_sam_argsparse().parse_known_args()
     args.name = "test"
