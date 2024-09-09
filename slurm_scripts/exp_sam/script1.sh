@@ -20,4 +20,4 @@ set -x # activer l’echo des commandes
 export CUDA_VISIBLE_DEVICES=0,1,2,3 
 export WANDB_DIR=$WORK/wandb/
 export WANDB_MODE=offline
-srun distillation_sam.py --optim adamw  --model mobilesam_vit --learning_rate 0.001 --weight_decay 0.0005 --epochs 40 --batch_size 8 --sam_checkpoint $WORK/data/sam_vit_h_4b8939.pth --output_dir $WORK/results_sam/ --root_feat $WORK/data/SAM_Features --dataset_path $DSDIR/SegmentAnything_1B --ade_dataset $SCRATCH/ADE20K/ --val_dirs sa_000021 --train_dirs sa_000022 sa_000024
+srun python3 distillation_sam.py --optim adamw  --model mobilesam_vit --learning_rate 0.001 --weight_decay 0.0005 --epochs 40 --batch_size 8 --sam_checkpoint $WORK/data/sam_vit_h_4b8939.pth --output_dir $WORK/results_sam/ --root_feat $WORK/data/SAM_Features --dataset_path $DSDIR/SegmentAnything_1B --ade_dataset $SCRATCH/ADE20K/ --val_dirs sa_000021 --train_dirs sa_000022 sa_000024
