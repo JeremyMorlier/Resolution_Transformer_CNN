@@ -90,7 +90,7 @@ def args_parser(add_help=True) :
 
     return parser
 
-def wandb_log(filepath, tags) :
+def wandb_log(filepath, added_tags) :
     if os.path.isfile(filepath) :
 
         with open(filepath, "r") as file :
@@ -101,8 +101,8 @@ def wandb_log(filepath, tags) :
             # wandb init
             project_name = header["project_name"]
             run_name = header["run_name"]
-            tags = header["tags"]
-            args = header["args"] + tags
+            tags = header["tags"] + added_tags
+            args = header["args"] 
             wandb.init(
                 project=project_name,
                 name=run_name,
