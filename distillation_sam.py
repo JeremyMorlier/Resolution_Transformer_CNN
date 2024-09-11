@@ -227,6 +227,12 @@ def main(args) :
     optimizer = get_optimizer(args, model)
     scheduler = get_scheduler(args, optimizer)
 
+    if args.resume:
+        if os.path.isfile(args.resume) :
+            print("trstt")
+            checkpoint = torch.load(args.resume, map_location="cpu")
+            model_without_ddp.load_state_dict(checkpoint)
+
     if utils.is_main_process() == 0:
         init_time = time.time()
 
@@ -248,7 +254,7 @@ def main(args) :
 
     # Evaluate
     model.eval()
-    if args.val_dirs != None :
+    if args.val_dirs != None and args.sam_checkpoint != None:
         print("Evaluate against ViT_H", time.strftime("%d %b %Y %H:%M:%S", time.gmtime()))
 
         # Dataset
