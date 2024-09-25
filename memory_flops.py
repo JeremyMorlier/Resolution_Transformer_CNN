@@ -41,6 +41,25 @@ def memory_per_sequence(input_size, n_patch, d_model, d_mlp) :
 
     return max(total_input_memory, layer_norm_memory, QKV_memory, attention_memory, mlp_memory)
 
+def total_memory_per_sequence(input_size, n_layers, n_patch, d_model, d_mlp) :
+
+    sequence_length = n_patch + 1
+    # Input memory
+    input_memory = 3*input_size*input_size
+    embedding_memory = d_model*(sequence_length)
+    total_input_memory = input_memory + embedding_memory
+
+    layer_norm_memory = embedding_memory
+
+    # Self attention
+    QKV_memory = d_model*3*sequence_length + embedding_memory
+    attention_memory = sequence_length*sequence_length + d_model*3*sequence_length
+
+    # MLP
+    mlp_memory = embedding_memory + sequence_length*d_mlp
+
+    return sequence_length + input_memory + n_layers * (layer_norm_memory + QKV_memory + attention_memory + layer_norm_memory + mlp_memory)
+
 def get_memory_flops(model, resolution, args) :
 
     memory = 0.0
@@ -57,7 +76,8 @@ def get_memory_flops(model, resolution, args) :
         flops = list(flops_per_sequence(args.patch_size, patch_number, args.num_layers, args.num_heads, args.hidden_dim, args.mlp_dim, 1000))
         memory = memory_per_sequence(resolution, patch_number, args.hidden_dim, args.mlp_dim)
         # TODO: add total memory and model size to ViTs
-        total_memory = 0
-        model_size = 0
+        total_memory = total_memory_per_sequence(resolution, args.num_layers, patch_number, args.hidden_dim, args.mlp_dim)
+        # Number of parameters = Embedding + Encoder + Head
+        model_size = (3*args.patch_size * args.patch_size*args.hidden_dim + (patch_number + 1)*args.hidden_dim) +  args.num_layers*args.hidden_dim(args.hidden_dim*3 + args.hidden_dim +2*args.mlp_dim)
 
     return memory, flops, total_memory, model_size
