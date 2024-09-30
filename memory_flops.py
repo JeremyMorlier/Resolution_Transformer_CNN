@@ -78,6 +78,6 @@ def get_memory_flops(model, resolution, args) :
         # TODO: add total memory and model size to ViTs
         total_memory = total_memory_per_sequence(resolution, args.num_layers, patch_number, args.hidden_dim, args.mlp_dim)
         # Number of parameters = Embedding + Encoder + Head
-        model_size = (3*args.patch_size * args.patch_size*args.hidden_dim + (patch_number + 1)*args.hidden_dim) +  args.num_layers*args.hidden_dim(args.hidden_dim*3 + args.hidden_dim +2*args.mlp_dim)
+        model_size = (3*args.patch_size * args.patch_size*args.hidden_dim + (patch_number + 1)*args.hidden_dim) +  args.num_layers*args.hidden_dim*(args.hidden_dim*3 + args.hidden_dim +2*args.mlp_dim)
 
     return memory, flops, total_memory, model_size
