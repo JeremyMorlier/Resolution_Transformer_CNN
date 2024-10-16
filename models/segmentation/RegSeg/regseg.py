@@ -29,9 +29,9 @@ class RegSeg_model(nn.Module):
         super().__init__()
         in_channels = channels[0]
         # TODO: change for config parameter
-        print(first_conv_resize, gw, channels)
+        #print(first_conv_resize, gw, channels)
         self.stem=ConvBnAct(3,in_channels,3,2,1, first_conv_resize=first_conv_resize)
-        print(regseg_name)
+        #print(regseg_name)
         body_name, decoder_name=regseg_name.split("_")
         if "exp30" == body_name:
             self.body=RegSegBody(5*[[1,4]]+8*[[1,10]], gw, channels)
