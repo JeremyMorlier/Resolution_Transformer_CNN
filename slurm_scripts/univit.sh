@@ -8,7 +8,7 @@
 #SBATCH --gres=gpu:1 # reserver 4 GPU
 #SBATCH --cpus-per-task=8 # reserver 10 CPU par tache (et memoire associee)
 #SBATCH --time=20:00:00 # temps maximal d’allocation "(HH:MM:SS)"
-#SBATCH --qos=qos_gpu-t3 # QoS
+#SBATCH --qos=qos_gpu_a100-t3 # QoS
 #SBATCH --hint=nomultithread # desactiver l’hyperthreading
 #SBATCH --account=sxq@a100 # comptabilite 1100
 
