@@ -15,7 +15,7 @@
 module purge # nettoyer les modules herites par defaut
 conda deactivate # desactiver les environnements herites par defaut
 module load anaconda-py3/2023.09
-conda activate $WORK/venvs/venvResolution
+conda activate $WORK/venvRes
 set -x # activer l’echo des commandes
 
 export WANDB_DIR=$WORK/wandb/

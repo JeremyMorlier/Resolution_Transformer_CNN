@@ -59,6 +59,7 @@ def evaluate(model, data_loader, device):
         print("Acc5 : " , accs5.mean().item())
     return accs1.mean().item(), accs5.mean().item()
 
+
 def setup_args(patch_size, num_layers, num_heads, hidden_dim, mlp_dim) :
     args = Namespace()
     args.model = "vit_custom"
@@ -70,11 +71,17 @@ def setup_args(patch_size, num_layers, num_heads, hidden_dim, mlp_dim) :
 
     return args
 
+def get_args(model_name) :
+    list_args = model_name.split("_")
+    patch_size, num_layers, num_heads, hidden_dim, mlp_dim, model_img_size = [int(element) for element in list_args[2:]]
+    args = setup_args(patch_size, num_layers, num_heads, hidden_dim, mlp_dim)
+
+    return args 
+
 def get_named_model(model_name, path, resolution, device) :
 
     list_args = model_name.split("_")
     patch_size, num_layers, num_heads, hidden_dim, mlp_dim, model_img_size = [int(element) for element in list_args[2:]]
-    args = setup_args(patch_size, num_layers, num_heads, hidden_dim, mlp_dim)
     model = get_model("vit_custom", weights=None, num_classes=1000, patch_size=patch_size, num_layers=num_layers, num_heads=num_heads, hidden_dim=hidden_dim, mlp_dim=mlp_dim, image_size=resolution)
     
     state_dict = torch.load(path)["model"]
@@ -82,7 +89,7 @@ def get_named_model(model_name, path, resolution, device) :
     model.load_state_dict(state_dict)
     model.to(device)
 
-    return model, args
+    return model
 
 if __name__ == "__main__" :
 
@@ -91,7 +98,7 @@ if __name__ == "__main__" :
     dataset_dir = os.path.join(os.getenv("DSDIR"), "imagenet")
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     val_crop_resolutions = [64, 128, 160, 176, 192, 224, 368]
-    val_crop_resolutions = [64, 128]
+    # val_crop_resolutions = [64, 128]
     
     # format is vit dir + dir per model + checkpoint.pth
     model_dir = os.path.join(os.getenv("WORK"), "vit")
@@ -101,6 +108,8 @@ if __name__ == "__main__" :
     for model_name in models :
         path = os.path.join(os.path.join(model_dir, model_name, "checkpoint.pth"))
         log[model_name] = {}
+        args = get_args(model_name)
+        val_crop_resolutions = [args.patch_size*k for k in range(4, 40)]
         for val_crop_resolution in val_crop_resolutions :
 
             model, args = get_named_model(model_name, path, val_crop_resolution, device)
