@@ -112,7 +112,7 @@ if __name__ == "__main__" :
         val_crop_resolutions = [args.patch_size*k for k in range(4, 40)]
         for val_crop_resolution in val_crop_resolutions :
 
-            model, args = get_named_model(model_name, path, val_crop_resolution, device)
+            model = get_named_model(model_name, path, val_crop_resolution, device)
             memory, flops, total_memory, model_size = get_memory_flops(model, val_crop_resolution, args)
 
             val_resize_resolution = int(232/224*val_crop_resolution)
