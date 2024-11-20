@@ -125,6 +125,7 @@ if __name__ == "__main__" :
             log[model_name] = {}
             args = get_args(model_name)
             val_crop_resolutions = [args.patch_size*k for k in range(4, 40)]
+            print(args.patch_size, val_crop_resolutions)
             for val_crop_resolution in val_crop_resolutions :
 
                 model = get_named_model(model_name, path, val_crop_resolution, device)
