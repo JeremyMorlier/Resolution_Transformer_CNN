@@ -78,57 +78,72 @@ def get_args(model_name) :
 
     return args 
 
-def get_named_model(model_name, path, resolution, device) :
+def get_named_model(model_name, resolution, device=None, path=None) :
 
     list_args = model_name.split("_")
     patch_size, num_layers, num_heads, hidden_dim, mlp_dim, model_img_size = [int(element) for element in list_args[2:]]
     model = get_model("vit_custom", weights=None, num_classes=1000, patch_size=patch_size, num_layers=num_layers, num_heads=num_heads, hidden_dim=hidden_dim, mlp_dim=mlp_dim, image_size=resolution)
     
-    state_dict = torch.load(path)["model"]
-    interpolate_embeddings(val_crop_resolution, patch_size, state_dict)
-    model.load_state_dict(state_dict)
-    model.to(device)
+    if path != None :
+        state_dict = torch.load(path)["model"]
+        interpolate_embeddings(val_crop_resolution, patch_size, state_dict)
+        model.load_state_dict(state_dict)
+    if device != None :
+        model.to(device)
 
     return model
 
+def test_model_names(model_names) :
+
+    valid_models = []
+    for model_name in model_names :
+        try :
+            model = get_named_model(model_name, 224, None, None)
+            valid_models.append(model_name)
+            print(model_name)
+        except :
+            print("model not possible")
+
+    return valid_models
+
 if __name__ == "__main__" :
-
-    init_signal_handler()
-
-    dataset_dir = os.path.join(os.getenv("DSDIR"), "imagenet")
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    val_crop_resolutions = [64, 128, 160, 176, 192, 224, 368]
-    # val_crop_resolutions = [64, 128]
     
-    # format is vit dir + dir per model + checkpoint.pth
+    init_signal_handler()
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    dataset_dir = os.path.join(os.getenv("DSDIR"), "imagenet")
     model_dir = os.path.join(os.getenv("WORK"), "vit")
+    # format is vit dir + dir per model + checkpoint.pth
+    
     models = os.listdir(model_dir)
+    valid_models = test_model_names(models)
 
     log = {}
     for model_name in models :
-        path = os.path.join(os.path.join(model_dir, model_name, "checkpoint.pth"))
-        log[model_name] = {}
-        args = get_args(model_name)
-        val_crop_resolutions = [args.patch_size*k for k in range(4, 40)]
-        for val_crop_resolution in val_crop_resolutions :
+        if model_name in models :
+            path = os.path.join(os.path.join(model_dir, model_name, "checkpoint.pth"))
+            log[model_name] = {}
+            args = get_args(model_name)
+            val_crop_resolutions = [args.patch_size*k for k in range(4, 40)]
+            for val_crop_resolution in val_crop_resolutions :
 
-            model = get_named_model(model_name, path, val_crop_resolution, device)
-            memory, flops, total_memory, model_size = get_memory_flops(model, val_crop_resolution, args)
+                model = get_named_model(model_name, path, val_crop_resolution, device)
+                memory, flops, total_memory, model_size = get_memory_flops(model, val_crop_resolution, args)
 
-            val_resize_resolution = int(232/224*val_crop_resolution)
-            # Load Dataset 
-            val_transform = v2.Compose([v2.ToImage(), v2.Resize(val_resize_resolution), v2.CenterCrop(val_crop_resolution), v2.ToDtype(torch.float32, scale=True), v2.Normalize(mean = torch.tensor([0.485, 0.456, 0.406]), std = torch.tensor([0.229, 0.224, 0.225]))])
-            val = ImageNet(root=dataset_dir, split="val", transform=val_transform)
-            val_loader =  DataLoader(val, 128, shuffle=True, num_workers=6)
+                val_resize_resolution = int(232/224*val_crop_resolution)
+                # Load Dataset 
+                val_transform = v2.Compose([v2.ToImage(), v2.Resize(val_resize_resolution), v2.CenterCrop(val_crop_resolution), v2.ToDtype(torch.float32, scale=True), v2.Normalize(mean = torch.tensor([0.485, 0.456, 0.406]), std = torch.tensor([0.229, 0.224, 0.225]))])
+                val = ImageNet(root=dataset_dir, split="val", transform=val_transform)
+                val_loader =  DataLoader(val, 128, shuffle=True, num_workers=6)
 
-            results = evaluate(model, val_loader, device)
-            log[model_name]["args"] = args.__dict__
-            log[model_name]["model_size"] = model_size
-            log[model_name][val_crop_resolution] = {}
-            log[model_name][val_crop_resolution]["acc1"] = results[0]
-            log[model_name][val_crop_resolution]["flops"] = flops
-            log[model_name][val_crop_resolution]["act_memory"] = memory
-            log[model_name][val_crop_resolution]["total_memory"] = total_memory
-    with open(os.path.join(model_dir, "log.txt"), "a") as file :
-        json.dump(log, file)
-        file.write("\n")
+                results = evaluate(model, val_loader, device)
+                log[model_name]["args"] = args.__dict__
+                log[model_name]["model_size"] = model_size
+                log[model_name][val_crop_resolution] = {}
+                log[model_name][val_crop_resolution]["acc1"] = results[0]
+                log[model_name][val_crop_resolution]["flops"] = flops
+                log[model_name][val_crop_resolution]["act_memory"] = memory
+                log[model_name][val_crop_resolution]["total_memory"] = total_memory
+        with open(os.path.join(model_dir, "log.txt"), "a") as file :
+            json.dump(log, file)
+            file.write("\n")
