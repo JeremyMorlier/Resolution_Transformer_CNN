@@ -107,7 +107,7 @@ def test_model_names(model_names) :
     return valid_models
 
 if __name__ == "__main__" :
-    
+
     init_signal_handler()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
@@ -120,7 +120,7 @@ if __name__ == "__main__" :
 
     log = {}
     for model_name in models :
-        if model_name in models :
+        if model_name in valid_models :
             path = os.path.join(os.path.join(model_dir, model_name, "checkpoint.pth"))
             log[model_name] = {}
             args = get_args(model_name)
