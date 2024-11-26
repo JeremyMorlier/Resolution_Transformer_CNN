@@ -60,7 +60,7 @@ def evaluate(model, data_loader, device):
     return accs1.mean().item(), accs5.mean().item()
 
 
-def setup_args(patch_size, num_layers, num_heads, hidden_dim, mlp_dim) :
+def setup_args(patch_size, num_layers, num_heads, hidden_dim, mlp_dim, model_img_size) :
     args = Namespace()
     args.model = "vit_custom"
     args.patch_size = patch_size
@@ -68,13 +68,14 @@ def setup_args(patch_size, num_layers, num_heads, hidden_dim, mlp_dim) :
     args.num_heads = num_heads
     args.hidden_dim = hidden_dim
     args.mlp_dim = mlp_dim
+    args.model_img_size = model_img_size
 
     return args
 
 def get_args(model_name) :
     list_args = model_name.split("_")
     patch_size, num_layers, num_heads, hidden_dim, mlp_dim, model_img_size = [int(element) for element in list_args[2:]]
-    args = setup_args(patch_size, num_layers, num_heads, hidden_dim, mlp_dim)
+    args = setup_args(patch_size, num_layers, num_heads, hidden_dim, mlp_dim, model_img_size)
 
     return args 
 
@@ -98,11 +99,12 @@ def test_model_names(model_names) :
     valid_models = []
     for model_name in model_names :
         try :
-            model = get_named_model(model_name, 224, None, None)
+            args = get_args(model_name)
+            model = get_named_model(model_name, args.model_img_size, None, None)
             valid_models.append(model_name)
             print(model_name)
-        except :
-            print("model not possible")
+        except Exception as e:
+            print("model not possible: ", e)
 
     return valid_models
 
@@ -124,11 +126,11 @@ if __name__ == "__main__" :
             path = os.path.join(os.path.join(model_dir, model_name, "checkpoint.pth"))
             log[model_name] = {}
             args = get_args(model_name)
-            val_crop_resolutions = [args.patch_size*k for k in range(4, 40)]
+            val_crop_resolutions = [int(args.patch_size*k) for k in range(4, 40)]
             print(args.patch_size, val_crop_resolutions)
             for val_crop_resolution in val_crop_resolutions :
 
-                model = get_named_model(model_name, path, val_crop_resolution, device)
+                model = get_named_model(model_name, val_crop_resolution, device, path)
                 memory, flops, total_memory, model_size = get_memory_flops(model, val_crop_resolution, args)
 
                 val_resize_resolution = int(232/224*val_crop_resolution)
