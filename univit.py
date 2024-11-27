@@ -119,7 +119,8 @@ if __name__ == "__main__" :
     
     models = os.listdir(model_dir)
     valid_models = test_model_names(models)
-
+    print(models)
+    print(valid_models)
     log = {}
     for model_name in models :
         if model_name in valid_models :
