@@ -1,5 +1,5 @@
 # Evaluate pretrained ViT-S on multiple resolutions using positional embedding interpolations
-import os
+import os, sys
 from argparse import Namespace
 import json
 
@@ -108,6 +108,20 @@ def test_model_names(model_names) :
 
     return valid_models
 
+def init_log(model_dir) :
+    filepath = os.path.join(model_dir, "log.txt")
+    if os.path.isfile(filepath) :        
+        with open(filepath, "r") as file :
+            lines = file.readlines()
+            log = json.loads(lines[0])
+    else :
+        log = {}
+        log["evaluated models"] = []
+def save_log(model_dir, log) :
+    with open(os.path.join(model_dir, "log.txt"), "w") as file :
+        json.dump(log, file)
+        file.write("\n")
+        
 if __name__ == "__main__" :
 
     init_signal_handler()
@@ -121,9 +135,11 @@ if __name__ == "__main__" :
     valid_models = test_model_names(models)
     print(models)
     print(valid_models)
-    log = {}
+
+    log = init_log(model_dir)
+
     for model_name in models :
-        if model_name in valid_models :
+        if model_name in valid_models and model_name not in log["evaluated models"]:
             path = os.path.join(os.path.join(model_dir, model_name, "checkpoint.pth"))
             log[model_name] = {}
             args = get_args(model_name)
@@ -148,6 +164,5 @@ if __name__ == "__main__" :
                 log[model_name][val_crop_resolution]["flops"] = flops
                 log[model_name][val_crop_resolution]["act_memory"] = memory
                 log[model_name][val_crop_resolution]["total_memory"] = total_memory
-        with open(os.path.join(model_dir, "log.txt"), "a") as file :
-            json.dump(log, file)
-            file.write("\n")
+            log["evaluated models"].append(model_name)
+            save_log(model_dir, log)

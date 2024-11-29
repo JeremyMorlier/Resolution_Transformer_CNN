@@ -11,6 +11,7 @@
 #SBATCH --qos=qos_gpu_a100-t3 # QoS
 #SBATCH --hint=nomultithread # desactiver l’hyperthreading
 #SBATCH --account=sxq@a100 # comptabilite 1100
+#SBATCH --signal=USR1@40
 
 module purge # nettoyer les modules herites par defaut
 conda deactivate # desactiver les environnements herites par defaut
