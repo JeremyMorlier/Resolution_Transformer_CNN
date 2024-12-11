@@ -114,7 +114,7 @@ instructions available: https://github.com/CSAILVision/ADE20K
 instructions to download Cityscapes dataset
 1. Register on  https://www.cityscapes-dataset.com/downloads/
 2. install https://github.com/mcordts/cityscapesScripts, `pip install cityscapesscripts`
-3. csDownload gtFine_trainvaltest.zip && csDownload gtCoarse.zip && csDownload
-4. unzip gtFine_trainvaltest.zip && unzip gtCoarse.zip && unzip
+3. csDownload gtFine_trainvaltest.zip && csDownload gtCoarse.zip && csDownload leftImg8bit_trainvaltest.zip
+4. unzip gtFine_trainvaltest.zip && unzip gtCoarse.zip && unzip leftImg8bit_trainvaltest.zip
 6. CITYSCAPES_DATASET=PATH_TO_DATASET csCreateTrainIdLabelImgs
 5. if needed find . -type f -exec cat {} \; &> /dev/null
