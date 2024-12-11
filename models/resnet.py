@@ -231,6 +231,10 @@ class ResNet(nn.Module):
 
         # Encoder
         self.encoder = nn.Sequential(self.conv1, self.bn1, self.relu, self.layer1, self.layer2, self.layer3, self.layer4)
+
+        # Quantization
+        self.quant = torch.ao.quantization.QuantStub()
+        self.dequant = torch.ao.quantization.DeQuantStub()
     def _make_layer(
         self,
         block: Type[Union[BasicBlock, Bottleneck]],
@@ -274,6 +278,7 @@ class ResNet(nn.Module):
 
     def _forward_impl(self, x: Tensor) -> Tensor:
         # See note [TorchScript super()]
+        x = self.quant(x)
         x = self.conv1(x)
         if self.first_conv_resize != 0 :
             x = torch.nn.functional.interpolate(x, self.first_conv_resize)
@@ -291,6 +296,7 @@ class ResNet(nn.Module):
         x = torch.flatten(x, 1)
         x = self.fc(x)
 
+        x = self.dequant(x)
         return x
 
     def forward(self, x: Tensor) -> Tensor:

@@ -23,4 +23,4 @@ set -x # activer l’echo des commandes
 export WANDB_DIR=$WORK/wandb/
 export WANDB_MODE=offline
 
-srun python3 univit.py
+srun python3 quant_vit.py

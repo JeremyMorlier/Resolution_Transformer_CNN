@@ -298,7 +298,6 @@ class VisionTransformer(nn.Module):
         x = torch.cat([batch_class_token, x], dim=1)
 
         x = self.encoder(x)
-        
         return x
      
     # def get_patch_tokens(self, x: torch.Tensor, reshape: bool = False) :
