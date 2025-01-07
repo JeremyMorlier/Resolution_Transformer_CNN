@@ -28,10 +28,7 @@ class RegSeg_model(nn.Module):
     def __init__(self, regseg_name, num_classes, pretrained="", ablate_decoder=False,change_num_classes=False, gw=16, channels=[32, 48, 128, 256, 320], first_conv_resize=0):
         super().__init__()
         in_channels = channels[0]
-        # TODO: change for config parameter
-        #print(first_conv_resize, gw, channels)
         self.stem=ConvBnAct(3,in_channels,3,2,1, first_conv_resize=first_conv_resize)
-        #print(regseg_name)
         body_name, decoder_name=regseg_name.split("_")
         if "exp30" == body_name:
             self.body=RegSegBody(5*[[1,4]]+8*[[1,10]], gw, channels)
@@ -99,18 +96,21 @@ class RegSeg_model(nn.Module):
             else:
                 self.load_state_dict(dic,strict=True)
 
-
+        # Quantization
+        self.quant = torch.ao.quantization.QuantStub()
+        self.dequant = torch.ao.quantization.DeQuantStub()
     def forward(self,x, shape=None):
         output_shape=x.shape[-2:]
         if shape :
             output_shape = shape
         # Encoder starts here
+        x = self.quant(x)
         x=self.stem(x)
         x=self.body(x)
         # Decoder starts here
         x=self.decoder(x)
         x = F.interpolate(x, size=output_shape, mode='bilinear', align_corners=False)
-
+        x = self.dequant(x)
         # Torchvision compatible output
         result = OrderedDict()
         result["out"] = x

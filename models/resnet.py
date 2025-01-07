@@ -140,6 +140,7 @@ class Bottleneck(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
+        self.f_add = torch.ao.nn.quantized.FloatFunctional()
 
     def forward(self, x: Tensor) -> Tensor:
         identity = x
@@ -158,7 +159,8 @@ class Bottleneck(nn.Module):
         if self.downsample is not None:
             identity = self.downsample(x)
 
-        out += identity
+        out = self.f_add.add(out, identity)
+        #out += identity
         out = self.relu(out)
 
         return out

@@ -38,12 +38,19 @@ class SEModule(nn.Module):
         self.act1=nn.ReLU(inplace=True)
         self.conv2=nn.Conv2d(w_se, w_in, 1, bias=True)
         self.act2=nn.Sigmoid()
-
+        # Quantization
+        self.quant = torch.ao.quantization.QuantStub()
+        self.dequant = torch.ao.quantization.DeQuantStub()
+        self.dequant2 = torch.ao.quantization.DeQuantStub()
     def forward(self, x):
         y=self.avg_pool(x)
         y=self.act1(self.conv1(y))
         y=self.act2(self.conv2(y))
-        return x * y
+        x =self.dequant(x)
+        y = self.dequant2(y)
+        z = x*y
+        z = self.quant(z)
+        return z
 
 class Shortcut(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1, avg_downsample=False):
@@ -156,6 +163,8 @@ class DBlock(nn.Module):
         else:
             self.shortcut = None
 
+        # Quantization
+        self.f_add = torch.ao.nn.quantized.FloatFunctional()
     def forward(self, x):
         shortcut=self.shortcut(x) if self.shortcut else x
         x=self.conv1(x)
@@ -168,7 +177,8 @@ class DBlock(nn.Module):
             x=self.se(x)
         x=self.conv3(x)
         x=self.bn3(x)
-        x = self.act3(x + shortcut)
+        x = self.f_add.add(x, shortcut)
+        x = self.act3(x)
         return x
 
 class Exp2_LRASPP(nn.Module):
@@ -284,14 +294,16 @@ class Exp2_Decoder26(nn.Module):
         self.conv8=ConvBnAct(128,64,3,1,1)
         self.conv4=ConvBnAct(64+8,64,3,1,1)
         self.classifier=nn.Conv2d(64, num_classes, 1)
-
+        self.f_add = torch.ao.nn.quantized.FloatFunctional()
+        self.f_add2 = torch.ao.nn.quantized.FloatFunctional()
     def forward(self, x):
         x4, x8, x16=x["4"], x["8"],x["16"]
         x16=self.head16(x16)
         x8=self.head8(x8)
         x4=self.head4(x4)
         x16 = F.interpolate(x16, size=x8.shape[-2:], mode='bilinear', align_corners=False)
-        x8= x8 + x16
+        x8 = self.f_add.add(x8, x16)
+        # x8= x8 + x16
         x8=self.conv8(x8)
         x8 = F.interpolate(x8, size=x4.shape[-2:], mode='bilinear', align_corners=False)
         x4=torch.cat((x8,x4),dim=1)

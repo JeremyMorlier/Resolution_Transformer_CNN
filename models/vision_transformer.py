@@ -108,17 +108,28 @@ class EncoderBlock(nn.Module):
         # MLP block
         self.ln_2 = norm_layer(hidden_dim)
         self.mlp = MLPBlock(hidden_dim, mlp_dim, dropout)
-
+        # Quantization
+        self.quant_attn = torch.ao.quantization.QuantStub()
+        self.quant_mlp = torch.ao.quantization.QuantStub()
+        self.dequant = torch.ao.quantization.DeQuantStub()
+        self.dequant_attn = torch.ao.quantization.DeQuantStub()
+        self.floatfunctional = nn.quantized.FloatFunctional()
     def forward(self, input: torch.Tensor):
         torch._assert(input.dim() == 3, f"Expected (batch_size, seq_length, hidden_dim) got {input.shape}")
         x = self.ln_1(input)
+        # x = self.quant(x)
+        x = self.quant_attn(x)
         x, _ = self.self_attention(x, x, x, need_weights=False)
+        x = self.dequant_attn(x)
         x = self.dropout(x)
         x = x + input
-
+        # x = self.floatfunctional.add(x, input)
         y = self.ln_2(x)
+        y = self.quant_mlp(y)
         y = self.mlp(y)
+        y = self.dequant(y)
         return x + y
+        # return self.floatfunctional.add(x, y)
 
 
 class Encoder(nn.Module):
@@ -152,11 +163,17 @@ class Encoder(nn.Module):
             )
         self.layers = nn.Sequential(layers)
         self.ln = norm_layer(hidden_dim)
-
+        # Quantization
+        self.quant = torch.ao.quantization.QuantStub()
+        self.dequant = torch.ao.quantization.DeQuantStub()
     def forward(self, input: torch.Tensor):
         torch._assert(input.dim() == 3, f"Expected (batch_size, seq_length, hidden_dim) got {input.shape}")
+        
         input = input + self.pos_embedding
-        return self.ln(self.layers(self.dropout(input)))
+        #input = self.quant(input)
+        input = self.ln(self.layers(self.dropout(input)))
+        #input = self.dequant(input)
+        return input 
 
 
 class VisionTransformer(nn.Module):
@@ -267,6 +284,11 @@ class VisionTransformer(nn.Module):
             nn.init.zeros_(self.heads.head.weight)
             nn.init.zeros_(self.heads.head.bias)
 
+        # Quantization
+        self.quant = torch.ao.quantization.QuantStub()
+        self.dequant = torch.ao.quantization.DeQuantStub()
+        self.quant2 = torch.ao.quantization.QuantStub()
+        self.dequant2 = torch.ao.quantization.DeQuantStub()
     def _process_input(self, x: torch.Tensor) -> torch.Tensor:
         n, c, h, w = x.shape
         p = self.patch_size
@@ -276,7 +298,9 @@ class VisionTransformer(nn.Module):
         n_w = w // p
 
         # (n, c, h, w) -> (n, hidden_dim, n_h, n_w)
+        # x = self.quant(x)
         x = self.conv_proj(x)
+        # x = self.dequant(x)
         # (n, hidden_dim, n_h, n_w) -> (n, hidden_dim, (n_h * n_w))
         x = x.reshape(n, self.hidden_dim, n_h * n_w)
 
@@ -296,8 +320,9 @@ class VisionTransformer(nn.Module):
         # Expand the class token to the full batch
         batch_class_token = self.class_token.expand(n, -1, -1)
         x = torch.cat([batch_class_token, x], dim=1)
-
+        # x = self.quant(x)
         x = self.encoder(x)
+        # x = self.dequant(x)
         return x
      
     # def get_patch_tokens(self, x: torch.Tensor, reshape: bool = False) :
@@ -321,8 +346,9 @@ class VisionTransformer(nn.Module):
                 outputs = outputs.reshape(B, w // self.patch_size, h // self.patch_size, -1).permute(0, 3, 1, 2).contiguous()
             return outputs
 
+        class_token = self.quant2(class_token)
         class_token = self.heads(class_token)
-
+        class_token = self.dequant2(class_token)
         return class_token
 
 def _vision_transformer(
