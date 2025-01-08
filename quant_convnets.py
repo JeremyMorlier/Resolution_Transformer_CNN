@@ -314,9 +314,9 @@ def evaluate_args(model, args) :
 if __name__ == "__main__" :
 
     # Paths 
-    models_dir = "$WORK/Convnets/"
-    imagenet_path = "$DSDIR/imagenet"
-    cityscapes_path = "$SCRATCH/cityscapes"
+    models_dir = os.path.join(os.getenv("WORK"), "Convnets")
+    imagenet_path = os.path.join(os.getenv("DSDIR"), "imagenet")
+    cityscapes_path = os.path.join(os.getenv("SCRATCH"), "cityscapes")
 
     init_signal_handler()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
