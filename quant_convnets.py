@@ -331,19 +331,23 @@ if __name__ == "__main__" :
             log[model_name] = {}
             args = get_args(model_name, imagenet_path, cityscapes_path)
 
-            model = get_args_model(args, path, device)
-            results = evaluate_args(model, args)
-            log[model_name]["results"] = results
-            model.qconfig = torch.ao.quantization.get_default_qconfig('x86')
-            model_fp32_prepared = torch.ao.quantization.prepare(model)
+            try :
+                model = get_args_model(args, path, device)
+                results = evaluate_args(model, args)
+                log[model_name]["results"] = results
+                model.qconfig = torch.ao.quantization.get_default_qconfig('x86')
+                model_fp32_prepared = torch.ao.quantization.prepare(model)
 
-            calibrate(model_fp32_prepared, args)
-            model_int8 = torch.ao.quantization.convert(model_fp32_prepared)
+                calibrate(model_fp32_prepared, args)
+                model_int8 = torch.ao.quantization.convert(model_fp32_prepared)
 
-            results = evaluate_args(model, args)
+                results = evaluate_args(model, args)
 
-            log[model_name]["args"] = args.__dict__
-            log[model_name]["ptq_results"] = results
+                log[model_name]["args"] = args.__dict__
+                log[model_name]["ptq_results"] = results
+            except Exception as e :
+                print(e)
+                continue
             log["evaluated models"].append(model_name)
             save_log(models_dir, log)
 
