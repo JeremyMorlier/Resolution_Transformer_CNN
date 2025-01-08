@@ -87,7 +87,7 @@ def classification_evaluation(model, criterion, device, val_crop_resolutions,  a
             print("Dataset loading :", val_crop_resolution, val_resize_resolution)
 
             # Load Dataset 
-            val_transform = v2.Compose([v2.ToImage(), v2.Resize(val_resize_resolutions), v2.CenterCrop(val_crop_resolution), v2.ToDtype(torch.float, scale=True), v2.Normalize(mean = torch.tensor([0.485, 0.456, 0.406]), std = torch.tensor([0.229, 0.224, 0.225]))])
+            val_transform = v2.Compose([v2.ToImage(), v2.Resize(val_resize_resolution), v2.CenterCrop(val_crop_resolution), v2.ToDtype(torch.float, scale=True), v2.Normalize(mean = torch.tensor([0.485, 0.456, 0.406]), std = torch.tensor([0.229, 0.224, 0.225]))])
             val = ImageNet(root=args.data_path, split="val", transform=val_transform)
             val_loader =  DataLoader(val, 128, shuffle=True, num_workers=6)
             print("Dataset loaded")
