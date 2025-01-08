@@ -219,7 +219,8 @@ def init_log(model_dir) :
     else :
         log = {}
         log["evaluated models"] = []
-        
+    
+    return log
 def save_log(model_dir, log) :
     with open(os.path.join(model_dir, "log.txt"), "w") as file :
         json.dump(log, file)
