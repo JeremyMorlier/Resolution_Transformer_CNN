@@ -64,7 +64,7 @@ def evaluate_classification(model, data_loader, device):
         print("Acc5 : " , accs5.mean().item())
     return accs1.mean().item(), accs5.mean().item()
 
-def classification_evaluation(model, criterion, device, val_resize_resolutions,  args) :
+def classification_evaluation(model, criterion, device, val_crop_resolutions,  args) :
 
     val_crop_resolutions = list(set(val_crop_resolutions))
     val_crop_resolutions.sort()
@@ -93,7 +93,7 @@ def classification_evaluation(model, criterion, device, val_resize_resolutions, 
             print("Dataset loaded")
 
             # Evaluate on all models
-            results = evaluate(model, criterion, val_loader, device)
+            results = evaluate_classification(model, val_loader, device)
 
             if results[0] >=  dict_results["best_acc1"] :
                 dict_results["best_acc1"] = results[0]
