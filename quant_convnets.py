@@ -5,15 +5,12 @@ from argparse import Namespace
 from tqdm import tqdm
 
 import torch
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader
 from torchvision.transforms import v2
 from torchvision.datasets import ImageNet
-from torchvision.models import resnet50, ResNet50_Weights
 
-from memory_flops import get_memory_flops
-from common import flops_per_sequence
 from models import get_model
-from references.common import get_name, init_signal_handler
+from references.common import init_signal_handler
 
 # Semantic Segmentation
 from train_semantic import evaluate, get_dataset
