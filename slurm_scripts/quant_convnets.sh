@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=VITB # nom du job
-#SBATCH --output=log/VITB/%j/logs.out # fichier de sortie (%j = job ID)
-#SBATCH --error=log/VITB/%j/errors.err # fichier d’erreur (%j = job ID)
+#SBATCH --job-name=QCO # nom du job
+#SBATCH --output=log/QCO/%j/logs.out # fichier de sortie (%j = job ID)
+#SBATCH --error=log/QCO/%j/errors.err # fichier d’erreur (%j = job ID)
 #SBATCH --constraint=a100
 #SBATCH --nodes=1 # reserver 1 nœud
 #SBATCH --ntasks=1 #reserver 4 taches (ou processus)
@@ -23,4 +23,4 @@ set -x # activer l’echo des commandes
 export WANDB_DIR=$WORK/wandb/
 export WANDB_MODE=offline
 
-srun python3 quant_convnet.py
+srun python3 quant_convnets.py
