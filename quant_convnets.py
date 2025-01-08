@@ -76,7 +76,7 @@ def classification_evaluation(model, criterion, device, val_crop_resolutions,  a
 
     for val_crop_resolution in val_crop_resolutions :
 
-        val_resize_resolutions = [val_crop_resolution - 8, val_crop_resolution - 16, val_crop_resolution + 8, val_crop_resolution + 16,  val_crop_resolution + 24, val_crop_resolution + 32, val_crop_resolution, int(val_crop_resolution*232/224)]
+        val_resize_resolutions = [int(val_crop_resolution*232/224)]
         val_resize_resolutions.sort()
         
         dict_results[val_crop_resolution] = {}
@@ -110,7 +110,7 @@ def classification_evaluation(model, criterion, device, val_crop_resolutions,  a
 # Evaluate the trained model at different resolution
 def segmentation_evaluation(model, device, args) :
 
-    val_resize_resolutions = [128, 256, 384, 512, 640, 768, 896, 1024, 1280, 1536]
+    val_resize_resolutions = [128, 384, 640, 896, 1024, 1280]
 
     args.val_label_size = 1024
 
