@@ -204,7 +204,7 @@ def get_args_model(args, path, device) :
     elif "regseg" in args.model :
         model = get_model("regseg_custom", weights=None, weights_backbone=None, num_classes=args.num_classes, aux_loss=None, regseg_name=args.regseg_name, channels=args.channels, gw=args.gw, first_conv_resize=args.first_conv_resize)
     
-    state_dict = torch.load(path)
+    state_dict = torch.load(path, map_location=device)
     model.load_state_dict(state_dict["model"])
     model.to(device)
 
