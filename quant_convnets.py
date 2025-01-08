@@ -320,7 +320,7 @@ if __name__ == "__main__" :
     cityscapes_path = os.path.join(os.getenv("SCRATCH"), "cityscapes")
 
     init_signal_handler()
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cpu')
 
     models = os.listdir(models_dir)
     
