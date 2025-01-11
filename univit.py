@@ -79,7 +79,7 @@ def get_args(model_name) :
 
     return args 
 
-def get_named_model(model_name, resolution, device=None, path=None) :
+def get_named_model(model_name, resolution, device=None, path=None, interpolation_mode="bicubic") :
 
     list_args = model_name.split("_")
     patch_size, num_layers, num_heads, hidden_dim, mlp_dim, model_img_size = [int(element) for element in list_args[2:]]
@@ -87,7 +87,7 @@ def get_named_model(model_name, resolution, device=None, path=None) :
     
     if path != None :
         state_dict = torch.load(path)["model"]
-        interpolate_embeddings(val_crop_resolution, patch_size, state_dict)
+        interpolate_embeddings(val_crop_resolution, patch_size, state_dict, interpolation_mode=interpolation_mode)
         model.load_state_dict(state_dict)
     if device != None :
         model.to(device)
@@ -140,6 +140,7 @@ if __name__ == "__main__" :
 
     log = init_log(model_dir)
 
+    interpolation_modes = ['nearest', 'bilinear', 'bicubic', 'area', 'nearest-exact']
     for model_name in models :
         if model_name in valid_models and model_name not in log["evaluated models"]:
             path = os.path.join(os.path.join(model_dir, model_name, "checkpoint.pth"))
@@ -148,23 +149,25 @@ if __name__ == "__main__" :
             val_crop_resolutions = [int(args.patch_size*k) for k in range(4, 40)]
             print(args.patch_size, val_crop_resolutions)
             for val_crop_resolution in val_crop_resolutions :
-
-                model = get_named_model(model_name, val_crop_resolution, device, path)
-                memory, flops, total_memory, model_size = get_memory_flops(model, val_crop_resolution, args)
-
-                val_resize_resolution = int(232/224*val_crop_resolution)
-                # Load Dataset 
-                val_transform = v2.Compose([v2.ToImage(), v2.Resize(val_resize_resolution), v2.CenterCrop(val_crop_resolution), v2.ToDtype(torch.float32, scale=True), v2.Normalize(mean = torch.tensor([0.485, 0.456, 0.406]), std = torch.tensor([0.229, 0.224, 0.225]))])
-                val = ImageNet(root=dataset_dir, split="val", transform=val_transform)
-                val_loader =  DataLoader(val, 128, shuffle=True, num_workers=6)
-
-                results = evaluate(model, val_loader, device)
+                log[model_name][val_crop_resolution] = {}
                 log[model_name]["args"] = args.__dict__
                 log[model_name]["model_size"] = model_size
-                log[model_name][val_crop_resolution] = {}
-                log[model_name][val_crop_resolution]["acc1"] = results[0]
-                log[model_name][val_crop_resolution]["flops"] = flops
-                log[model_name][val_crop_resolution]["act_memory"] = memory
-                log[model_name][val_crop_resolution]["total_memory"] = total_memory
+                for interpolation_mode in interpolation_modes :
+
+                    model = get_named_model(model_name, val_crop_resolution, device, path)
+                    memory, flops, total_memory, model_size = get_memory_flops(model, val_crop_resolution, args)
+
+                    val_resize_resolution = int(232/224*val_crop_resolution)
+                    # Load Dataset 
+                    val_transform = v2.Compose([v2.ToImage(), v2.Resize(val_resize_resolution), v2.CenterCrop(val_crop_resolution), v2.ToDtype(torch.float32, scale=True), v2.Normalize(mean = torch.tensor([0.485, 0.456, 0.406]), std = torch.tensor([0.229, 0.224, 0.225]))])
+                    val = ImageNet(root=dataset_dir, split="val", transform=val_transform)
+                    val_loader =  DataLoader(val, 128, shuffle=True, num_workers=6)
+
+                    results = evaluate(model, val_loader, device)
+                    log[model_name][val_crop_resolution][interpolation_mode] = {}
+                    log[model_name][val_crop_resolution][interpolation_mode]["acc1"] = results[0]
+                    log[model_name][val_crop_resolution][interpolation_mode]["flops"] = flops
+                    log[model_name][val_crop_resolution][interpolation_mode]["act_memory"] = memory
+                    log[model_name][val_crop_resolution][interpolation_mode]["total_memory"] = total_memory
             log["evaluated models"].append(model_name)
             save_log(model_dir, log)
