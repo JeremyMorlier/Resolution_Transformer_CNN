@@ -4,3 +4,5 @@ wandb
 checkpoints
 results
 logs
+venv2
+plot_cs_vs_res.py
