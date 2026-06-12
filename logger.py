@@ -1,6 +1,7 @@
 import os
 
 import argparse
+import datetime
 
 import json
 import wandb
@@ -65,6 +66,15 @@ class Logger() :
                     file.write("\n")
 
     def log(self, dictionnary) :
+        dictionnary = dict(dictionnary)
+
+        timestamp = time.time()
+        dictionnary.setdefault("timestamp", timestamp)
+        dictionnary.setdefault(
+            "timestamp_iso",
+            datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc).isoformat(),
+        )
+
         # Update log with global step to better sync between modes
         dictionnary["step"] = self.step
         self.step += 1
@@ -132,5 +142,3 @@ if __name__ == "__main__" :
     elif os.path.isfile(arguments.path) :
         print("Processing: ", arguments.path)
         wandb_log(arguments.path, arguments.tags)
-
-    
