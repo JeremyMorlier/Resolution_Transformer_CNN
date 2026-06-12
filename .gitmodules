@@ -1,9 +1,0 @@
-[submodule "third_party/ADE20K_utils"]
-	path = third_party/ADE20K_utils
-	url = https://github.com/CSAILVision/ADE20K
-[submodule "third_party/segment-anything"]
-	path = third_party/segment-anything
-	url = https://github.com/facebookresearch/segment-anything
-[submodule "third_party/MobileSAM"]
-	path = third_party/MobileSAM
-	url = https://github.com/ChaoningZhang/MobileSAM

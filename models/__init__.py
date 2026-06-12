@@ -2,7 +2,6 @@ from .resnet import *
 from .vision_transformer import *
 from . import segmentation
 
-#from .SAM import *
 # The Weights and WeightsEnum are developer-facing utils that we make public for
 # downstream libs like torchgeo https://github.com/pytorch/vision/issues/7094
 # TODO: we could / should document them publicly, but it's not clear where, as
