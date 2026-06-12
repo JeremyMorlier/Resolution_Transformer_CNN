@@ -21,8 +21,15 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3
 export WANDB_DIR=$WORK/wandb/
 export WANDB_MODE=offline
 
-CUDA_VISIBLE_DEVICES=0 srun torchrun --standalone --nnodes=1 --nproc-per-node=1 test_rank.py --patate 1 
-CUDA_VISIBLE_DEVICES=1 srun torchrun --standalone --nnodes=1 --nproc-per-node=1 test_rank.py --patate 2 
-CUDA_VISIBLE_DEVICES=2 srun torchrun --standalone --nnodes=1 --nproc-per-node=1 test_rank.py --patate 3
-CUDA_VISIBLE_DEVICES=3 srun torchrun --standalone --nnodes=1 --nproc-per-node=1 test_rank.py --patate 4 
-wait $P1 $P2 $P3 $P4
+export MASTER_PORT=12340
+export WORLD_SIZE=4
+
+### get the first node name as master address - customized for vgg slurm
+### e.g. master(gnodee[2-5],gnoded1) == gnodee2
+echo "NODELIST="${SLURM_NODELIST}
+master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
+export MASTER_ADDR=$master_addr
+echo "MASTER_ADDR="$MASTER_ADDR
+
+srun python -u test_rank.py --patate 1 --world_size 4
+#srun torchrun --standalone --nnodes=1 --nproc-per-node=1 test_rank.py --patate 1 

@@ -1,5 +1,5 @@
 import datetime
-import os, stat
+import os, stat, sys
 import time
 import warnings
 
@@ -10,22 +10,21 @@ from torch import nn
 from torch.optim.lr_scheduler import PolynomialLR
 from torchvision.transforms import functional as F, InterpolationMode
 
-from references.common import create_dir
-
-from models import get_model
 import datasets as datasets
+from models import get_model, interpolate_embeddings
+import references.segmentation.utils as utils
 import references.segmentation.presets as presets
 import references.segmentation.RegSeg.presets as RS_presets
-import references.segmentation.utils as utils
 from references.segmentation.coco_utils import get_coco
-
 from references.common import get_name, init_signal_handler
-
-from memory_flops import get_memory_flops
 
 from logger import Logger
 
-from args import get_segmentation_argsparse 
+from args import get_vitsegmentation_argsparse
+from memory_flops import get_memory_flops
+
+from models.segmentation.setr import Naive_Head
+
 
 def get_dataset(args, is_train):
     def sbd(*args, **kwargs):
@@ -55,12 +54,38 @@ def get_dataset(args, is_train):
         ds = ds_fn(p, image_set=image_set, transforms=get_transform(is_train, args), use_v2=args.use_v2)
     return ds, num_classes
 
+def get_param_model(args, num_classes) :
+
+    if args.model == "vit_custom" :
+        model = get_model(args.model, weights=args.weights, num_classes=num_classes, patch_size=args.patch_size, num_layers=args.num_layers, num_heads=args.num_heads, hidden_dim=args.hidden_dim, mlp_dim=args.mlp_dim, image_size=args.img_size)
+
+    # Get memory and flops cost for each crop size
+    memories = []
+    total_memories = []
+    flops_list = []
+    model_sizes = []
+
+    if "vit" not in args.model :
+        val_crop_resolutions = [82, 98, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304, 320, 336, 352]
+    else :
+        val_crop_resolutions = [args.img_size]
+    val_crop_resolutions.append(args.random_crop_size)
+
+    for val_crop_resolution in val_crop_resolutions :
+        memory, flops, total_memory, model_size = get_memory_flops(model, val_crop_resolution, args)
+        memories.append(memory)
+        flops_list.append(flops)
+        total_memories.append(total_memory)
+        model_sizes.append(model_size)
+
+    return model, memories, flops_list, val_crop_resolutions, total_memories, model_sizes
+
 def get_transform(is_train, args):
     if args.dataset == "cityscapes" :
         if is_train:
             return RS_presets.build_train_transform2(args.scale_low_size, args.scale_high_size, args.random_crop_size, args.augmode, ignore_value=255)
         else :
-            return RS_presets.build_val_transform(args.val_input_size, args.val_label_size)
+            return RS_presets.build_val_transform2(args.val_input_size, args.val_label_size)
     if is_train:
         return presets.SegmentationPresetTrain(base_size=520, crop_size=480, backend=args.backend, use_v2=args.use_v2)
     elif args.weights and args.test_only:
@@ -77,54 +102,12 @@ def get_transform(is_train, args):
     else:
         return presets.SegmentationPresetEval(base_size=520, backend=args.backend, use_v2=args.use_v2)
 
-def get_param_model(args, num_classes) :
-
-
-
-    if args.model == "resnet50_resize" :
-        model = get_model(args.model, weights=args.weights, num_classes=num_classes, first_conv_resize=args.first_conv_resize, channels=args.channels, depths=args.depths)
-    elif args.model == "vit_custom" :
-        model = get_model(args.model, weights=args.weights, num_classes=num_classes, patch_size=args.patch_size, num_layers=args.num_layers, num_heads=args.num_heads, hidden_dim=args.hidden_dim, mlp_dim=args.mlp_dim, image_size=args.img_size)
-    elif args.model == "regseg_custom" :
-        channels = [32, 48, 128, 256, 320] if args.regseg_channels == None else args.regseg_channels
-        gw = 16 if args.regseg_gw == 0 else args.regseg_gw
-        model = get_model(args.model, weights=args.weights, weights_backbone=args.weights_backbone, num_classes=num_classes, aux_loss=args.aux_loss, regseg_name=args.regseg_name, channels=channels, gw=gw, first_conv_resize=args.first_conv_resize)
-    else :
-        model = get_model(args.model, weights=args.weights, num_classes=num_classes)
-
-    # Evaluate Model on a range of crops
-    memories = []
-    total_memories = []
-    flops_list = []
-    model_sizes = []
-    
-    if "vit" not in args.model :
-        val_crop_resolutions = [128, 256, 384, 512, 640, 768, 896, 1024, 1280, 1536]
-    else :
-        val_crop_resolutions = [args.img_size]
-    val_crop_resolutions.append(args.random_crop_size)
-    
-    for val_crop_resolution in val_crop_resolutions :
-        memory, flops, total_memory, model_size = get_memory_flops(model, val_crop_resolution, args)
-        memories.append(memory)
-        flops_list.append(flops)
-        total_memories.append(total_memory)
-        model_sizes.append(model_size)
-
-    return model, memories, flops_list, val_crop_resolutions, total_memories, model_sizes
-
 def criterion(inputs, target):
-    losses = {}
-    for name, x in inputs.items():
-        losses[name] = nn.functional.cross_entropy(x, target, ignore_index=255)
 
-    if len(losses) == 1:
-        return losses["out"]
+    loss = nn.functional.cross_entropy(inputs, target, ignore_index=255)
+    return loss
 
-    return losses["out"] + 0.5 * losses["aux"]
-
-
-def evaluate(model, data_loader, device, num_classes, exclude_classes):
+def evaluate(model, head, data_loader, device, num_classes, exclude_classes):
     model.eval()
     confmat = utils.ConfusionMatrix(num_classes, exclude_classes)
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -133,8 +116,9 @@ def evaluate(model, data_loader, device, num_classes, exclude_classes):
     with torch.inference_mode():
         for image, target in metric_logger.log_every(data_loader, 100, header):
             image, target = image.to(device), target.to(device)
-            output = model(image, shape=target.shape[-2:])
-            output = output["out"]
+            feats = model(image, return_patch=True, reshape=True)
+
+            output = head(feats)
 
             confmat.update(target.flatten(), output.argmax(1).flatten())
             # FIXME need to take into account that the datasets
@@ -159,65 +143,21 @@ def evaluate(model, data_loader, device, num_classes, exclude_classes):
 
     return confmat
 
-# Evaluate the trained model at different resolution
-def resolution_evaluate(model_state_dict, device, num_classes, args) :
-
-    val_resize_resolutions = [128, 256, 384, 512, 640, 768, 896, 1024, 1280, 1536]
-
-    # In evaluation, set training architecture modifications to 0
-    args.first_conv_resize = 0
-    model, memories, flops_list, val_crop_resolutions, _, _ = get_param_model(args, num_classes=num_classes)
-    model.to(device)
-    model_without_ddp = model
-    if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
-        model_without_ddp = model.module
-    model_without_ddp.load_state_dict(torch.load(model_state_dict)["model"])
-
-    args.val_label_size = 1024
-
-    dict_results = {}
-    dict_results["best_mIOU"] = 0
-    dict_results["best_resize"] = 0
-
-    for val_resize_resolution in val_resize_resolutions :
-        print("Dataset loading :", val_resize_resolution)
-
-        # Load Dataset with desired validation resolution
-        args.val_input_size = val_resize_resolution
-        dataset_test, _ = get_dataset(args, is_train=False)
-        if args.distributed:
-            test_sampler = torch.utils.data.distributed.DistributedSampler(dataset_test, shuffle=False)
-        else:
-            test_sampler = torch.utils.data.SequentialSampler(dataset_test)
-
-        data_loader_test = torch.utils.data.DataLoader(
-            dataset_test, batch_size=1, sampler=test_sampler, num_workers=args.workers, collate_fn=utils.collate_fn
-        )
-
-        print(f"Dataset loaded")
-
-        # Evaluate the model at specific resolution
-        confmat = evaluate(model, data_loader_test, device=device, num_classes=num_classes, exclude_classes=args.exclude_classes)
-        confmat.compute()
-
-        dict_results[val_resize_resolution] = [confmat.acc_global.item(), confmat.meanIU, confmat.iu.tolist(), confmat.mIOU_reduced]
-        if confmat.mIOU_reduced >= dict_results["best_mIOU"] :
-            dict_results["best_mIOU"] = confmat.mIOU_reduced
-            dict_results["best_resize"] = val_resize_resolution
-
-    return dict_results, val_resize_resolutions
-
-def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler, device, epoch, print_freq, scaler=None):
+def train_one_epoch(model, head, criterion, optimizer, data_loader, lr_scheduler, device, epoch, print_freq, scaler=None):
     model.train()
+    head.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value}"))
     header = f"Epoch: [{epoch}]"
-    for image, target in metric_logger.log_every(data_loader, print_freq, header):
+    n = len(data_loader)
+    for i, (image, target) in enumerate(data_loader) :
         image, target = image.to(device), target.to(device)
         with torch.cuda.amp.autocast(enabled=scaler is not None):
-            output = model(image, shape=target.shape[-2:])
+            feats = model(image, return_patch=True, reshape=True)
+            output = head(feats)
+
             loss = criterion(output, target)
+            sys.stdout.write(f'\r Train - {i + 1}/{n} loss - {loss.item()} {image.shape} {output.shape} {target.shape}')
 
         optimizer.zero_grad()
         if scaler is not None:
@@ -230,12 +170,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler, devi
 
         lr_scheduler.step()
 
-        metric_logger.update(loss=loss.item(), lr=optimizer.param_groups[0]["lr"])
-    # TODO : better logging of LR and loss values
-        #wandb.log({"lr": optimizer.param_groups[0]["lr"], "train loss":loss.item()})
-
-
-def main(args):
+def main(args) :
 
     utils.init_distributed_mode(args)
     print(args)
@@ -247,7 +182,7 @@ def main(args):
     args.output_dir = os.path.join(args.output_dir, args.name)
     utils.create_dir(args.output_dir)
 
-    # Setup
+    # Logger Setup
     if utils.is_main_process() :
 
         wandb_run_id = None
@@ -269,7 +204,7 @@ def main(args):
                         log_dir=args.output_dir)
 
         run_id = logger.id
-
+    
     if args.backend.lower() != "pil" and not args.use_v2:
         # TODO: Support tensor backend in V1?
         raise ValueError("Use --use_v2 if you want to use the tv_tensor or tensor backend.")
@@ -306,7 +241,8 @@ def main(args):
         dataset_test, batch_size=1, sampler=test_sampler, num_workers=args.workers, collate_fn=utils.collate_fn
     )
 
-    model, memories, flops_list, val_crop_resolutions, total_memories, model_sizes =  get_param_model(args, num_classes)
+    # Create Model
+    backbone, memories, flops_list, val_crop_resolutions, total_memories, model_sizes =  get_param_model(args, 1000)
     if utils.is_main_process() :
         print(memories, flops_list)
         logger.log({"memory":memories})
@@ -315,32 +251,38 @@ def main(args):
         logger.log({"model_sizes":model_sizes})
         logger.log({"measured_crops":val_crop_resolutions})
 
-    model.to(device)
-    if args.distributed:
-        model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+    head = Naive_Head(args.hidden_dim, 19, args.random_crop_size)
 
-    model_without_ddp = model
-    if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
-        model_without_ddp = model.module
+    backbone.to(device)
+    head.to(device)
 
-    if args.model == "regseg_custom" :
-        params_to_optimize = [
-            {"params": [p for p in model_without_ddp.parameters() if p.requires_grad]}
+    # Set the backbone and the head to distributed
+    if args.distributed:
+        backbone = torch.nn.SyncBatchNorm.convert_sync_batchnorm(backbone)
+        head = torch.nn.SyncBatchNorm.convert_sync_batchnorm(head)
+
+    backbone_without_ddp = backbone
+    head_without_ddp = head
+    if args.distributed:
+        backbone = torch.nn.parallel.DistributedDataParallel(backbone, device_ids=[args.gpu])
+        backbone_without_ddp = backbone.module
+
+        head = torch.nn.parallel.DistributedDataParallel(head, device_ids=[args.gpu])
+        head_without_ddp = head.module
+    
+    # freeze the beackbone(vits)
+    for param in backbone.parameters() :
+        param.requires_grad = False
+    params_to_optimize = [
+            {"params": [p for p in backbone_without_ddp.parameters() if p.requires_grad]},
+            {"params": [p for p in head_without_ddp.parameters() if p.requires_grad]},
         ]
-    else :
-        params_to_optimize = [
-            {"params": [p for p in model_without_ddp.backbone.parameters() if p.requires_grad]},
-            {"params": [p for p in model_without_ddp.classifier.parameters() if p.requires_grad]},
-        ]
-        if args.aux_loss:
-            params = [p for p in model_without_ddp.aux_classifier.parameters() if p.requires_grad]
-            params_to_optimize.append({"params": params, "lr": args.lr * 10})
 
     optimizer = torch.optim.SGD(params_to_optimize, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
     scaler = torch.cuda.amp.GradScaler() if args.amp else None
 
+    # Learning rate scheduler
     iters_per_epoch = len(data_loader)
     main_lr_scheduler = PolynomialLR(
         optimizer, total_iters=iters_per_epoch * (args.epochs - args.lr_warmup_epochs), power=args.power
@@ -367,24 +309,25 @@ def main(args):
     else:
         lr_scheduler = main_lr_scheduler
 
+    # Load  checkpoint
     if args.resume:
         if os.path.isfile(args.resume) :
             checkpoint = torch.load(args.resume, map_location="cpu")
-            model_without_ddp.load_state_dict(checkpoint["model"], strict=not args.test_only)
-            if not args.test_only:
-                optimizer.load_state_dict(checkpoint["optimizer"])
-                lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
-                args.start_epoch = checkpoint["epoch"] + 1
-                if args.amp:
-                    scaler.load_state_dict(checkpoint["scaler"])
+            # change the positional embedding if necessary
+            interpolate_embeddings(args.img_size, args.patch_size, checkpoint["model"])
+            backbone_without_ddp.load_state_dict(checkpoint["model"], strict=not args.test_only)
+
+            if "head" in checkpoint :
+                head_without_ddp.load_state_dict(checkpoint["head"], strict=not args.test_only)
 
     if args.test_only:
         # We disable the cudnn benchmarking because it can noticeably affect the accuracy
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
-        confmat = evaluate(model, data_loader_test, device=device, num_classes=num_classes)
-        return
+        confmat = evaluate(backbone, head, data_loader_test, device=device, num_classes=num_classes)
+        return 
 
+    # main training
     best_mrIoU = 0.0
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
@@ -394,13 +337,17 @@ def main(args):
         if utils.is_main_process() :
             logger.log({"epoch": epoch})
 
-        train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler, device, epoch, args.print_freq, scaler)
-        confmat = evaluate(model, data_loader_test, device=device, num_classes=num_classes, exclude_classes=args.exclude_classes)
+        train_one_epoch(backbone, head, criterion, optimizer, data_loader, lr_scheduler, device, epoch, args.print_freq, scaler)
+        confmat = evaluate(backbone, head, data_loader_test, device=device, num_classes=num_classes, exclude_classes=args.exclude_classes)
         confmat.compute()
+        print({"reduced_iu": confmat.reduced_iu, "mIOU_reduced": confmat.mIOU_reduced})
+
+        # Save checkpoint
         if utils.is_main_process() :
-            logger.log({"reduced_iu": confmat.reduced_iu, "mIOU_reduced": confmat.mIOU_reduced, "cuda_memory_allocated": torch.cuda.memory_allocated(device)})
+            logger.log({"reduced_iu": confmat.reduced_iu, "mIOU_reduced": confmat.mIOU_reduced})
         checkpoint = {
-            "model": model_without_ddp.state_dict(),
+            "model": backbone.state_dict(),
+            "head": head.state_dict(),
             "optimizer": optimizer.state_dict(),
             "lr_scheduler": lr_scheduler.state_dict(),
             "epoch": epoch,
@@ -425,20 +372,20 @@ def main(args):
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    print(f"Training time {total_time_str}")
-
-    # Evaluate the trained model at different resolutions
-    dict_result, val_resizes = resolution_evaluate(os.path.join(args.output_dir, f"checkpoint.pth"), device, num_classes, args)
     if utils.is_main_process() :
-        logger.log({"evaluations": dict_result})
-        logger.log({"val_resizes": val_resizes})
+        logger.log({"training_time": int(total_time)})
+    print(f"Training time {total_time_str} \n Training Finished !")
 
     if utils.is_main_process() :
         logger.finish()
 
 if __name__ == "__main__":
-    args, unknown_args = get_segmentation_argsparse().parse_known_args()
+    args, unknown_args = get_vitsegmentation_argsparse().parse_known_args()
 
     args.name = get_name(args)
+    args.random_crop_size = args.cityscapes_size
+    args.val_input_size = args.cityscapes_size
+    args.val_label_size = args.cityscapes_size
+    args.img_size = args.cityscapes_size
 
     main(args)

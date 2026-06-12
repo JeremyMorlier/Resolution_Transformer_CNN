@@ -3,6 +3,7 @@ import os, stat
 import time
 import warnings
 
+from logger import Logger
 import torch
 import torch.utils.data
 import torchvision
@@ -12,25 +13,45 @@ from torch import nn
 from torch.utils.data.dataloader import default_collate
 from torchvision.transforms.functional import InterpolationMode
 
-from torchvision_references.references.common import create_dir
+import references.classification.presets as presets
+from references.classification.transforms import get_mixup_cutmix
+import references.classification.utils as utils
+from references.classification.sampler import RASampler
+from references.common import get_name, init_signal_handler
+from models import get_model
 
-import torchvision_references.references.classification.presets as presets
-from torchvision_references.references.classification.transforms import get_mixup_cutmix
-import torchvision_references.references.classification.utils as utils
-from torchvision_references.references.classification.sampler import RASampler
-from torchvision_references.models import get_model
-
-import wandb
+from args import get_classification_argsparse
+from memory_flops import get_memory_flops
 
 def get_param_model(args, num_classes) :
+
     if args.model == "resnet50_resize" :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes, first_conv_resize=args.first_conv_resize, channels=args.channels, depths=args.depths)
     elif args.model == "vit_custom" :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes, patch_size=args.patch_size, num_layers=args.num_layers, num_heads=args.num_heads, hidden_dim=args.hidden_dim, mlp_dim=args.mlp_dim, image_size=args.img_size)
     else :
         model = get_model(args.model, weights=args.weights, num_classes=num_classes)
+
+    # Evaluate Model on a range of crops
+    memories = []
+    total_memories = []
+    flops_list = []
+    model_sizes = []
     
-    return model
+    if "vit" not in args.model :
+        val_crop_resolutions = [82, 98, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304, 320, 336, 352]
+    else :
+        val_crop_resolutions = [args.img_size]
+    val_crop_resolutions.append(args.val_crop_size)
+    
+    for val_crop_resolution in val_crop_resolutions :
+        memory, flops, total_memory, model_size = get_memory_flops(model, val_crop_resolution, args)
+        memories.append(memory)
+        flops_list.append(flops)
+        total_memories.append(total_memory)
+        model_sizes.append(model_size)
+
+    return model, memories, flops_list, val_crop_resolutions, total_memories, model_sizes
 
 def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args, model_ema=None, scaler=None):
     model.train()
@@ -71,12 +92,12 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, arg
         acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
         batch_size = image.shape[0]
         running_loss += loss.detach().item()
-        #wandb.log({"train loss":loss.item(),"lr":optimizer.param_groups[0]["lr"], "train acc1":acc1.item(), "train acc5":acc5.item(), "train img/s":batch_size / (time.time() - start_time)})
+        
         metric_logger.update(loss=loss.item(), lr=optimizer.param_groups[0]["lr"])
         metric_logger.meters["acc1"].update(acc1.item(), n=batch_size)
         metric_logger.meters["acc5"].update(acc5.item(), n=batch_size)
         metric_logger.meters["img/s"].update(batch_size / (time.time() - start_time))
-    wandb.log({"running_loss": running_loss/(len(data_loader)*batch_size), "average acc1":metric_logger.acc1.avg, "average acc5":metric_logger.acc5.avg})
+    return {"running_loss": running_loss/(len(data_loader)*batch_size), "average acc1":metric_logger.acc1.avg, "average acc5":metric_logger.acc5.avg}
 
 
 def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix=""):
@@ -96,7 +117,7 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix="
             # FIXME need to take into account that the datasets
             # could have been padded in distributed setup
             batch_size = image.shape[0]
-            # wandb.log({"val loss":loss.item(), "val acc1":acc1.item(), "val acc5":acc5.item()})
+            
             metric_logger.update(loss=loss.item())
             metric_logger.meters["acc1"].update(acc1.item(), n=batch_size)
             metric_logger.meters["acc5"].update(acc5.item(), n=batch_size)
@@ -122,42 +143,65 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix="
     print(f"{header} Acc@1 {metric_logger.acc1.global_avg:.3f} Acc@5 {metric_logger.acc5.global_avg:.3f}")
     return metric_logger.acc1.global_avg, metric_logger.acc5.global_avg
 
-def resolution_evaluate(model_state_dict, criterion, device, num_classes, args) :
-    from torchvision.transforms import v2
-    from torchvision.datasets import ImageNet
-    from torch.utils.data import DataLoader
-
-    val_crop_resolutions = [112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304, 320, 336, 352]
-    val_resize_resolutions = [120, 136, 152, 168, 184, 200, 216, 232, 248, 264, 280, 296, 312, 328, 344, 360]
-
-    all_results = []
+def resolution_evaluate(model_state_dict, criterion, device, num_classes, val_resize_resolutions,  args) :
 
     # In evaluation, set training architecture modifications to 0
     args.first_conv_resize = 0
-    model = get_param_model(args, num_classes=num_classes)
-    model.load_state_dict(torch.load(model_state_dict)["model"])
+    model, memory, flops, val_crop_resolutions, _, _ = get_param_model(args, num_classes=num_classes)
     model.to(device)
+
+    model_without_ddp = model
+    if args.distributed:
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        model_without_ddp = model.module
     
+    model_without_ddp.load_state_dict(torch.load(model_state_dict)["model"])
+
+    val_crop_resolutions = list(set(val_crop_resolutions))
+    val_crop_resolutions.sort()
+
+    dict_results = {}
+    dict_results["best_acc1"] = 0
+    dict_results["best_crop"] = 0
+    dict_results["best_resize"] = 0
+
     for val_crop_resolution in val_crop_resolutions :
-        global_results = []
+
+        val_resize_resolutions = [val_crop_resolution - 8, val_crop_resolution - 16, val_crop_resolution + 8, val_crop_resolution + 16,  val_crop_resolution + 24, val_crop_resolution + 32, val_crop_resolution, int(val_crop_resolution*232/224)]
+        val_resize_resolutions.sort()
+        
+        dict_results[val_crop_resolution] = {}
+        dict_results[val_crop_resolution]["best_acc1"] = 0
+        dict_results[val_crop_resolution]["best_resize"] = 0
+
         for val_resize_resolution in val_resize_resolutions :
             print("Dataset loading :", val_crop_resolution, val_resize_resolution)
 
             # Load Dataset 
-            val_transform = v2.Compose([v2.ToImage(), v2.Resize(val_resize_resolution), v2.CenterCrop(val_crop_resolution), v2.ToDtype(torch.float32, scale=True), v2.Normalize(mean = torch.tensor([0.485, 0.456, 0.406]), std = torch.tensor([0.229, 0.224, 0.225]))])
-            val = ImageNet(root=args.data_path, split="val", transform=val_transform)
-            val_loader =  DataLoader(val, 128, shuffle=True, num_workers=6)
+            dataset_test, test_sampler = load_val_data(os.path.join(args.data_path, "val"), val_crop_resolution, val_resize_resolution, args)
+            data_loader_test = torch.utils.data.DataLoader(dataset_test, batch_size=args.batch_size, sampler=test_sampler, num_workers=args.workers, pin_memory=True)
 
             print("Dataset loaded")
 
             # Evaluate on all models
-            results = evaluate(model, criterion, val_loader, device)
-            
-            global_results.append(results)
-        all_results.append(global_results)
-    save_tensor = torch.tensor(all_results)
-    torch.save(save_tensor, os.path.join(args.output_dir, "resolution.pth"))
-    os.chmod(os.path.join(args.output_dir, "resolution.pth"), stat.S_IRWXU | stat.S_IRWXO)
+            results = evaluate(model, criterion, data_loader_test, device)
+
+            if results[0] >=  dict_results["best_acc1"] :
+                dict_results["best_acc1"] = results[0]
+                dict_results["best_crop"] = val_crop_resolution
+                dict_results["best_resize"] = val_resize_resolution
+            if results[0] >= dict_results[val_crop_resolution]["best_acc1"] :
+                dict_results[val_crop_resolution]["best_acc1"] = results[0]
+                dict_results[val_crop_resolution]["best_resize"] = val_resize_resolution
+
+            dict_results[val_crop_resolution][val_resize_resolution] = results
+
+
+    if utils.is_main_process() :
+        torch.save(dict_results, os.path.join(args.output_dir, "resolution.pth"))
+        os.chmod(os.path.join(args.output_dir, "resolution.pth"), stat.S_IRWXU | stat.S_IRWXO)
+
+    return dict_results, val_crop_resolutions, val_resize_resolution
 
 def _get_cache_path(filepath):
     import hashlib
@@ -307,11 +351,37 @@ def load_data(traindir, valdir, args):
 
 
 def main(args):
-    if args.output_dir:
-        utils.mkdir(args.output_dir)
-
     utils.init_distributed_mode(args)
     print(args)
+
+    init_signal_handler()
+
+    # Change output directory and create it if necessary
+    utils.create_dir(args.output_dir)
+    args.output_dir = os.path.join(args.output_dir, args.name)
+    utils.create_dir(args.output_dir)
+
+    # Setup
+    if utils.is_main_process() :
+
+        wandb_run_id = None
+
+        if args.resume:
+            if os.path.isfile(args.resume) :
+                checkpoint = torch.load(args.resume, map_location="cpu")
+                if "wandb_run_id" in checkpoint :
+                    wandb_run_id = checkpoint["wandb_run_id"]
+                print(wandb_run_id)
+        
+        logger = Logger(project_name="resolution_CNN_ViT",
+                        run_name=args.name,
+                        tags=[args.model , "torchvision_reference", "train_crop_" + str(args.train_crop_size), "val_crop_" + str(args.val_crop_size)],
+                        resume=True,
+                        id=wandb_run_id,
+                        args=args,
+                        mode=args.logger,
+                        log_dir=args.output_dir)
+        run_id = logger.id
 
     device = torch.device(args.device)
 
@@ -326,6 +396,7 @@ def main(args):
     dataset, dataset_test, train_sampler, test_sampler = load_data(train_dir, val_dir, args)
 
     num_classes = len(dataset.classes)
+    num_classes = 1000
     mixup_cutmix = get_mixup_cutmix(
         mixup_alpha=args.mixup_alpha, cutmix_alpha=args.cutmix_alpha, num_categories=num_classes, use_v2=args.use_v2
     )
@@ -350,12 +421,25 @@ def main(args):
     )
     print(num_classes)
     print("Creating model")
-    model = get_param_model(args, num_classes=num_classes)
+    model, memories, flops_list, val_crop_resolutions, total_memories, model_sizes =  get_param_model(args, num_classes)
+    if utils.is_main_process() :
+        print(memories, flops_list)
+        logger.log({"memory":memories})
+        logger.log({"model_ops":flops_list})
+        logger.log({"total_memories":total_memories})
+        logger.log({"model_sizes":model_sizes})
+        logger.log({"measured_crops":val_crop_resolutions})
+
     model.to(device)
 
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
+    model_without_ddp = model
+    if args.distributed:
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        model_without_ddp = model.module
+        
     criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
 
     custom_keys_weight_decay = []
@@ -425,10 +509,6 @@ def main(args):
     else:
         lr_scheduler = main_lr_scheduler
 
-    model_without_ddp = model
-    if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
-        model_without_ddp = model.module
 
     model_ema = None
     if args.model_ema:
@@ -444,26 +524,31 @@ def main(args):
         model_ema = utils.ExponentialMovingAverage(model_without_ddp, device=device, decay=1.0 - alpha)
 
     if args.resume:
-        checkpoint = torch.load(args.resume, map_location="cpu")
-        model_without_ddp.load_state_dict(checkpoint["model"])
-        if not args.test_only:
-            optimizer.load_state_dict(checkpoint["optimizer"])
-            lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
-        args.start_epoch = checkpoint["epoch"] + 1
-        if model_ema:
-            model_ema.load_state_dict(checkpoint["model_ema"])
-        if scaler:
-            scaler.load_state_dict(checkpoint["scaler"])
+        if os.path.isfile(args.resume) :
+            checkpoint = torch.load(args.resume, map_location="cpu")
+            print(checkpoint.keys())
+            model_without_ddp.load_state_dict(checkpoint["model"])
+            if not args.test_only:
+                if "optimizer" in checkpoint :
+                    optimizer.load_state_dict(checkpoint["optimizer"])
+                if "lr_scheduler" in checkpoint :
+                    lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+            if "epoch" in checkpoint :
+                args.start_epoch = checkpoint["epoch"] + 1
+            if model_ema:
+                model_ema.load_state_dict(checkpoint["model_ema"])
+            if scaler:
+                scaler.load_state_dict(checkpoint["scaler"])
 
-    if args.test_only:
-        # We disable the cudnn benchmarking because it can noticeably affect the accuracy
-        torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.deterministic = True
-        if model_ema:
-            evaluate(model_ema, criterion, data_loader_test, device=device, log_suffix="EMA")
-        else:
-            evaluate(model, criterion, data_loader_test, device=device)
-        return
+    # if args.test_only:
+    #     # We disable the cudnn benchmarking because it can noticeably affect the accuracy
+    #     torch.backends.cudnn.benchmark = False
+    #     torch.backends.cudnn.deterministic = True
+    #     if model_ema:
+    #         evaluate(model_ema, criterion, data_loader_test, device=device, log_suffix="EMA")
+    #     else:
+    #         evaluate(model, criterion, data_loader_test, device=device)
+    #     return
 
     print("Start training")
     start_time = time.time()
@@ -471,16 +556,25 @@ def main(args):
     best_acc1 = 0.0
 
     for epoch in range(args.start_epoch, args.epochs):
-        wandb.log({"epoch": epoch})
+
+        if utils.is_main_process() :
+            logger.log({"epoch": epoch})
+
         if args.distributed:
             train_sampler.set_epoch(epoch)
-        train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args, model_ema, scaler)
+        train_results = train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args, model_ema, scaler)
+        if utils.is_main_process() :
+            logger.log(train_results)
         lr_scheduler.step()
         acc1_epoch, acc5_epoch = evaluate(model, criterion, data_loader_test, device=device)
-        wandb.log({"val global acc1":acc1_epoch, "val global acc5":acc5_epoch})
+
+        if utils.is_main_process() :
+            logger.log({"val global acc1":acc1_epoch, "val global acc5":acc5_epoch})
+
         if model_ema:
             acc1_ema, acc5_ema = evaluate(model_ema, criterion, data_loader_test, device=device, log_suffix="EMA")
-            wandb.log({"ema acc1":acc1_ema, "ema acc5":acc5_ema})
+            if utils.is_main_process() :
+                logger.log({"ema acc1":acc1_ema, "ema acc5":acc5_ema, "cuda_memory_allocated":torch.cuda.memory_allocated(device)})
         if args.output_dir:
             print("Saving model")
             checkpoint = {
@@ -489,218 +583,50 @@ def main(args):
                 "lr_scheduler": lr_scheduler.state_dict(),
                 "epoch": epoch,
                 "args": args,
-                "acc1_epoch" : acc1_epoch,
-                "acc5_epoch" : acc5_epoch,
+                "acc1_epoch": acc1_epoch,
+                "acc5_epoch": acc5_epoch,
             }
             if model_ema:
                 checkpoint["model_ema"] = model_ema.state_dict()
             if scaler:
                 checkpoint["scaler"] = scaler.state_dict()
+            if utils.is_main_process() :
+                checkpoint["wandb_run_id"] = logger.id
             if acc1_epoch >= best_acc1 :
                 best_acc1 = acc1_epoch
                 utils.save_on_master(checkpoint, os.path.join(args.output_dir, f"model_best.pth"))
             utils.save_on_master(checkpoint, os.path.join(args.output_dir, "checkpoint.pth"))
-    checkpoint = {"model": model_without_ddp.state_dict()}
     
-    utils.save_on_master(checkpoint, os.path.join(args.output_dir, "checkpoint.pth"))
-    utils.save_on_master(checkpoint, os.path.join(args.output_dir, "model_best.pth"))
-    os.chmod(os.path.join(args.output_dir, f"model_best.pth"),stat.S_IRWXU | stat.S_IRWXO)
-    os.chmod(os.path.join(args.output_dir, "checkpoint.pth"), stat.S_IRWXU | stat.S_IRWXO)
+    if utils.is_main_process() :
+        if os.path.isfile(os.path.join(args.output_dir, f"model_best.pth")) :
+            os.chmod(os.path.join(args.output_dir, f"model_best.pth"),stat.S_IRWXU | stat.S_IRWXO)
+        if os.path.isfile(os.path.join(args.output_dir, f"checkpoint.pth")) :
+            os.chmod(os.path.join(args.output_dir, "checkpoint.pth"), stat.S_IRWXU | stat.S_IRWXO)
 
     training_time = time.time()
     total_time = training_time - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Training time {total_time_str}")
-    # Last model evaluation
-    resolution_evaluate(os.path.join(args.output_dir, f"model_best.pth"), criterion, device, num_classes, args)
+
+    # Evaluate the model on a range of crop and resize resolutions
+    val_resize_resolutions = [120, 136, 152, 168, 184, 200, 216, 232, 248, 264, 280, 296, 312, 328, 344, 360]
+
+    results, val_crop_resolutions, val_resize_resolutions = resolution_evaluate(os.path.join(args.output_dir, f"checkpoint.pth"), criterion, device, num_classes, val_resize_resolutions,  args)
+    
+    if utils.is_main_process():
+        logger.log({"acc_resolutions": results, "val_crop_resolutions": val_crop_resolutions, "val_resize_resolution": val_resize_resolutions})
 
     total_time = time.time() - training_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Evaluation time {total_time_str}")
 
-
-
-def get_args_parser(add_help=True):
-    import argparse
-
-    parser = argparse.ArgumentParser(description="PyTorch Classification Training", add_help=add_help)
-
-    parser.add_argument("--data-path", default="/datasets01/imagenet_full_size/061417/", type=str, help="dataset path")
-    parser.add_argument("--model", default="resnet18", type=str, help="model name")
-    parser.add_argument("--device", default="cuda", type=str, help="device (Use cuda or cpu Default: cuda)")
-    parser.add_argument(
-        "-b", "--batch-size", default=32, type=int, help="images per gpu, the total batch size is $NGPU x batch_size"
-    )
-    parser.add_argument("--epochs", default=90, type=int, metavar="N", help="number of total epochs to run")
-    parser.add_argument(
-        "-j", "--workers", default=16, type=int, metavar="N", help="number of data loading workers (default: 16)"
-    )
-    parser.add_argument("--opt", default="sgd", type=str, help="optimizer")
-    parser.add_argument("--lr", default=0.1, type=float, help="initial learning rate")
-    parser.add_argument("--momentum", default=0.9, type=float, metavar="M", help="momentum")
-    parser.add_argument(
-        "--wd",
-        "--weight-decay",
-        default=1e-4,
-        type=float,
-        metavar="W",
-        help="weight decay (default: 1e-4)",
-        dest="weight_decay",
-    )
-    parser.add_argument(
-        "--norm-weight-decay",
-        default=None,
-        type=float,
-        help="weight decay for Normalization layers (default: None, same value as --wd)",
-    )
-    parser.add_argument(
-        "--bias-weight-decay",
-        default=None,
-        type=float,
-        help="weight decay for bias parameters of all layers (default: None, same value as --wd)",
-    )
-    parser.add_argument(
-        "--transformer-embedding-decay",
-        default=None,
-        type=float,
-        help="weight decay for embedding parameters for vision transformer models (default: None, same value as --wd)",
-    )
-    parser.add_argument(
-        "--label-smoothing", default=0.0, type=float, help="label smoothing (default: 0.0)", dest="label_smoothing"
-    )
-    parser.add_argument("--mixup-alpha", default=0.0, type=float, help="mixup alpha (default: 0.0)")
-    parser.add_argument("--cutmix-alpha", default=0.0, type=float, help="cutmix alpha (default: 0.0)")
-    parser.add_argument("--lr-scheduler", default="steplr", type=str, help="the lr scheduler (default: steplr)")
-    parser.add_argument("--lr-warmup-epochs", default=0, type=int, help="the number of epochs to warmup (default: 0)")
-    parser.add_argument(
-        "--lr-warmup-method", default="constant", type=str, help="the warmup method (default: constant)"
-    )
-    parser.add_argument("--lr-warmup-decay", default=0.01, type=float, help="the decay for lr")
-    parser.add_argument("--lr-step-size", default=30, type=int, help="decrease lr every step-size epochs")
-    parser.add_argument("--lr-gamma", default=0.1, type=float, help="decrease lr by a factor of lr-gamma")
-    parser.add_argument("--lr-min", default=0.0, type=float, help="minimum lr of lr schedule (default: 0.0)")
-    parser.add_argument("--print-freq", default=10, type=int, help="print frequency")
-    parser.add_argument("--output-dir", default=".", type=str, help="path to save outputs")
-    parser.add_argument("--resume", default="", type=str, help="path of checkpoint")
-    parser.add_argument("--start-epoch", default=0, type=int, metavar="N", help="start epoch")
-    parser.add_argument(
-        "--cache-dataset",
-        dest="cache_dataset",
-        help="Cache the datasets for quicker initialization. It also serializes the transforms",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--sync-bn",
-        dest="sync_bn",
-        help="Use sync batch norm",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--test-only",
-        dest="test_only",
-        help="Only test the model",
-        action="store_true",
-    )
-    parser.add_argument("--auto-augment", default=None, type=str, help="auto augment policy (default: None)")
-    parser.add_argument("--ra-magnitude", default=9, type=int, help="magnitude of auto augment policy")
-    parser.add_argument("--augmix-severity", default=3, type=int, help="severity of augmix policy")
-    parser.add_argument("--random-erase", default=0.0, type=float, help="random erasing probability (default: 0.0)")
-
-    # Mixed precision training parameters
-    parser.add_argument("--amp", action="store_true", help="Use torch.cuda.amp for mixed precision training")
-
-    # distributed training parameters
-    parser.add_argument("--world-size", default=1, type=int, help="number of distributed processes")
-    parser.add_argument("--dist-url", default="env://", type=str, help="url used to set up distributed training")
-    parser.add_argument(
-        "--model-ema", action="store_true", help="enable tracking Exponential Moving Average of model parameters"
-    )
-    parser.add_argument(
-        "--model-ema-steps",
-        type=int,
-        default=32,
-        help="the number of iterations that controls how often to update the EMA model (default: 32)",
-    )
-    parser.add_argument(
-        "--model-ema-decay",
-        type=float,
-        default=0.99998,
-        help="decay factor for Exponential Moving Average of model parameters (default: 0.99998)",
-    )
-    parser.add_argument(
-        "--use-deterministic-algorithms", action="store_true", help="Forces the use of deterministic algorithms only."
-    )
-    parser.add_argument(
-        "--interpolation", default="bilinear", type=str, help="the interpolation method (default: bilinear)"
-    )
-    parser.add_argument(
-        "--val-resize-size", default=256, type=int, help="the resize size used for validation (default: 256)"
-    )
-    parser.add_argument(
-        "--val-crop-size", default=224, type=int, help="the central crop size used for validation (default: 224)"
-    )
-    parser.add_argument(
-        "--train-crop-size", default=224, type=int, help="the random crop size used for training (default: 224)"
-    )
-    parser.add_argument("--clip-grad-norm", default=None, type=float, help="the maximum gradient norm (default None)")
-    parser.add_argument("--ra-sampler", action="store_true", help="whether to use Repeated Augmentation in training")
-    parser.add_argument(
-        "--ra-reps", default=3, type=int, help="number of repetitions for Repeated Augmentation (default: 3)"
-    )
-    parser.add_argument("--weights", default=None, type=str, help="the weights enum name to load")
-    parser.add_argument("--backend", default="PIL", type=str.lower, help="PIL or tensor - case insensitive")
-    parser.add_argument("--use-v2", action="store_true", help="Use V2 transforms")
-
-    # Resnet Specific args
-    parser.add_argument("--first-conv-resize",  default=0, type=int, help="Resize Value after first conv")
-    parser.add_argument("--channels",default=None,  nargs="+", type=int, help="channels of ResNet")
-    parser.add_argument("--depths", default=None, nargs="+", type=int, help="layers depths of ResNet")
-
-    # ViT Specific Args
-    parser.add_argument("--patch_size",  default=16, type=int, help="ViT patch size(default to vit_b_16)")
-    parser.add_argument("--num_layers",  default=12, type=int, help="ViT number of layers (default to vit_b_16)")
-    parser.add_argument("--num_heads",  default=12, type=int, help="ViT number of Attention heads (default to vit_b_16)")
-    parser.add_argument("--hidden_dim",  default=768, type=int, help="ViT hidden dimension (default to vit_b_16)")
-    parser.add_argument("--mlp_dim",  default=3072, type=int, help="ViT hidden mlp dimension (default to vit_b_16)")
-    parser.add_argument("--img_size",  default=224, type=int, help="ViT img size (default to vit_b_16)")
-
-    return parser
-
-
-def get_name(args) :
-
-    name_channel = ""
-    if args.channels != None :
-        for element in args.channels :
-            name_channel += "_" + str(element)
-    else :
-        name_channel = "None"
-    
-    if "resnet" in args.model :
-        name = args.model + "_" + str(args.train_crop_size) + "_" + str(args.val_crop_size)  + "_" + str(args.val_resize_size) + "_" + str(args.first_conv_resize) + name_channel
-    elif "vit" in args.model:
-        name = args.model + "_" + str(args.patch_size) + "_" + str(args.num_layers) + "_" + str(args.num_heads) + "_" + str(args.hidden_dim) + "_" + str(args.mlp_dim) + "_" + str(args.img_size)
-
-    return name
+    # Close Logger
+    if utils.is_main_process():
+        logger.finish()
 
 if __name__ == "__main__":
-    args = get_args_parser().parse_args()
+    args, unknown_args = get_classification_argsparse().parse_known_args()
+    print(args)
+    args.name = get_name(args)
 
-    name = get_name(args)
-
-    # Change output directory and create it if necessary
-    create_dir(args.output_dir)
-    args.output_dir = os.path.join(args.output_dir, name)
-    create_dir(args.output_dir)
-
-    wandb.init(
-        # set the wandb project where this run will be logged
-        project="resolution_CNN_ViT",
-        name=name,
-        tags=[args.model , "torchvision_reference", "train_crop_" + str(args.train_crop_size), "val_crop_" + str(args.val_crop_size)],
-        
-        # track hyperparameters and run metadata
-        config=args
-    )
     main(args)
-    wandb.finish()
