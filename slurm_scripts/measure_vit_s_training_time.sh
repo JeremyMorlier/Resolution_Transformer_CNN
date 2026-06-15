@@ -5,7 +5,7 @@
 #SBATCH --error=logs/%j/error.err
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=10
-#SBATCH --mem=200G
+#SBATCH --mem=80G
 #SBATCH --partition=Brain_GPU
 #SBATCH --gres=gpu:a100:1
 #SBATCH --array=0-5%1
