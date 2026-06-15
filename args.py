@@ -117,6 +117,11 @@ def classification_args_parser(parser):
         action="store_true",
     )
     parser.add_argument(
+        "--skip_resolution_evaluation",
+        action="store_true",
+        help="Skip the post-training evaluation over multiple input resolutions",
+    )
+    parser.add_argument(
         "--sync_bn",
         dest="sync_bn",
         help="Use sync batch norm",

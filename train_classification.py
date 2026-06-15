@@ -610,17 +610,18 @@ def main(args):
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Training time {total_time_str}")
 
-    # Evaluate the model on a range of crop and resize resolutions
-    val_resize_resolutions = [120, 136, 152, 168, 184, 200, 216, 232, 248, 264, 280, 296, 312, 328, 344, 360]
+    if not args.skip_resolution_evaluation:
+        # Evaluate the model on a range of crop and resize resolutions
+        val_resize_resolutions = [120, 136, 152, 168, 184, 200, 216, 232, 248, 264, 280, 296, 312, 328, 344, 360]
 
-    results, val_crop_resolutions, val_resize_resolutions = resolution_evaluate(os.path.join(args.output_dir, f"checkpoint.pth"), criterion, device, num_classes, val_resize_resolutions,  args)
-    
-    if utils.is_main_process():
-        logger.log({"acc_resolutions": results, "val_crop_resolutions": val_crop_resolutions, "val_resize_resolution": val_resize_resolutions})
+        results, val_crop_resolutions, val_resize_resolutions = resolution_evaluate(os.path.join(args.output_dir, f"checkpoint.pth"), criterion, device, num_classes, val_resize_resolutions,  args)
 
-    total_time = time.time() - training_time
-    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    print(f"Evaluation time {total_time_str}")
+        if utils.is_main_process():
+            logger.log({"acc_resolutions": results, "val_crop_resolutions": val_crop_resolutions, "val_resize_resolution": val_resize_resolutions})
+
+        total_time = time.time() - training_time
+        total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+        print(f"Evaluation time {total_time_str}")
 
     # Close Logger
     if utils.is_main_process():
