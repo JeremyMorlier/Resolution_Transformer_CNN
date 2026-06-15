@@ -1,26 +1,18 @@
 #!/bin/bash
-#SBATCH --job-name=vit_s_time
-#SBATCH --output=slurm-vit-s-time-%A_%a.out
-#SBATCH --error=slurm-vit-s-time-%A_%a.err
-#SBATCH --array=0-5
-#SBATCH --constraint=a100
-#SBATCH --nodes=1
-#SBATCH --ntasks=8
-#SBATCH --gres=gpu:8
-#SBATCH --cpus-per-task=8
-#SBATCH --time=04:00:00
-#SBATCH --qos=qos_gpu-t3
-#SBATCH --hint=nomultithread
-#SBATCH --account=sxq@a100
-#SBATCH --signal=USR1@40
+#SBATCH --time=48:00:00
+#SBATCH --job-name=RTCNN_Training_TIME
+#SBATCH --output=logs/%j/output.out
+#SBATCH --error=logs/%j/error.err
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=10
+#SBATCH --mem=200G
+#SBATCH --partition=Brain_GPU
+#SBATCH --gres=gpu:a100:1
+#SBATCH --array=0-5%1
 
-set -euo pipefail
-set -x
 
-module purge
-conda deactivate || true
-module load anaconda-py3/2023.09
-conda activate "$WORK/venvs/venvResolution"
+cd /SCRATCH/j20morli/Resolution_Transformer_CNN
+source .venv/bin/activate
 
 export WANDB_DIR="$WORK/wandb"
 export WANDB_MODE=offline
@@ -36,8 +28,8 @@ VAL_RESIZE_SIZE=$((IMAGE_SIZE + 8))
 
 MEASURED_EPOCHS=1
 ESTIMATED_EPOCHS="${ESTIMATED_EPOCHS:-300}"
-OUTPUT_ROOT="${OUTPUT_ROOT:-$WORK/results_resolution/training_time/vit_s_16/$SLURM_ARRAY_JOB_ID}"
-DATA_PATH="${DATA_PATH:-$DSDIR/imagenet}"
+OUTPUT_ROOT="${results_resolution/training_time/vit_s_16/$SLURM_ARRAY_JOB_ID}"
+DATA_PATH=/SCRATCH/j20morli/imagenet
 RUN_NAME="vit_custom_16_12_6_384_1536_${IMAGE_SIZE}"
 RUN_DIR="${OUTPUT_ROOT}/${RUN_NAME}"
 LOG_FILE="${RUN_DIR}/resolution_CNN_ViT_${RUN_NAME}.log"
