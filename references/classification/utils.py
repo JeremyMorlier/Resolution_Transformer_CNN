@@ -1,11 +1,11 @@
 import copy
 import datetime
-import errno
 import hashlib
 import os
 import stat
 import time
 from collections import defaultdict, deque, OrderedDict
+from pathlib import Path
 from typing import List, Optional, Tuple
 
 import hostlist
@@ -14,11 +14,7 @@ import torch.distributed as dist
 
 
 def mkdir(path):
-    try:
-        os.makedirs(path)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
+    Path(path).mkdir(parents=True, exist_ok=True)
 
 
 def setup_for_distributed(is_master):
