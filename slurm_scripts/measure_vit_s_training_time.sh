@@ -5,7 +5,6 @@
 #SBATCH --error=logs/%j/error.err
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=10
-#SBATCH --mem=80G
 #SBATCH --partition=Brain_GPU
 #SBATCH --gres=gpu:a100:1
 #SBATCH --array=0-5%1
@@ -28,7 +27,9 @@ VAL_RESIZE_SIZE=$((IMAGE_SIZE + 8))
 
 MEASURED_EPOCHS=1
 ESTIMATED_EPOCHS="${ESTIMATED_EPOCHS:-300}"
-OUTPUT_ROOT="${results_resolution/training_time/vit_s_16/$SLURM_ARRAY_JOB_ID}"
+TRAIN_SAMPLES="${TRAIN_SAMPLES:-1281167}"
+BACKWARD_MULTIPLIER="${BACKWARD_MULTIPLIER:-3.0}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-$WORK/results_resolution/training_time/vit_s_16/$SLURM_ARRAY_JOB_ID}"
 DATA_PATH=/SCRATCH/j20morli/imagenet
 RUN_NAME="vit_custom_16_12_6_384_1536_${IMAGE_SIZE}"
 RUN_DIR="${OUTPUT_ROOT}/${RUN_NAME}"
@@ -69,3 +70,9 @@ srun python3 train_classification.py \
 
 python3 measure_training_time.py "$LOG_FILE" --epoch 0 --epochs "$ESTIMATED_EPOCHS" \
     | tee "${RUN_DIR}/training_time_${ESTIMATED_EPOCHS}_epochs.txt"
+
+python3 measure_training_resources.py "$LOG_FILE" \
+    --epochs "$ESTIMATED_EPOCHS" \
+    --train-samples "$TRAIN_SAMPLES" \
+    --backward-multiplier "$BACKWARD_MULTIPLIER" \
+    | tee "${RUN_DIR}/training_resources_${ESTIMATED_EPOCHS}_epochs.txt"

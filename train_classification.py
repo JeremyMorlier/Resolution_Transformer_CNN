@@ -55,6 +55,8 @@ def get_param_model(args, num_classes) :
 
 def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args, model_ema=None, scaler=None):
     model.train()
+    if device.type == "cuda":
+        torch.cuda.reset_peak_memory_stats(device)
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value}"))
     metric_logger.add_meter("img/s", utils.SmoothedValue(window_size=10, fmt="{value}"))
@@ -97,7 +99,17 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, arg
         metric_logger.meters["acc1"].update(acc1.item(), n=batch_size)
         metric_logger.meters["acc5"].update(acc5.item(), n=batch_size)
         metric_logger.meters["img/s"].update(batch_size / (time.time() - start_time))
-    return {"running_loss": running_loss/(len(data_loader)*batch_size), "average acc1":metric_logger.acc1.avg, "average acc5":metric_logger.acc5.avg}
+    train_results = {
+        "running_loss": running_loss/(len(data_loader)*batch_size),
+        "average acc1":metric_logger.acc1.avg,
+        "average acc5":metric_logger.acc5.avg,
+    }
+    if device.type == "cuda":
+        train_results["train_peak_cuda_memory_allocated"] = torch.cuda.max_memory_allocated(device)
+        train_results["train_peak_cuda_memory_allocated_mb"] = torch.cuda.max_memory_allocated(device) / (1024 ** 2)
+        train_results["train_peak_cuda_memory_reserved"] = torch.cuda.max_memory_reserved(device)
+        train_results["train_peak_cuda_memory_reserved_mb"] = torch.cuda.max_memory_reserved(device) / (1024 ** 2)
+    return train_results
 
 
 def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix=""):
