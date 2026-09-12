@@ -10,8 +10,10 @@
 #SBATCH --array=0-5%1
 
 
-cd /SCRATCH/j20morli/Resolution_Transformer_CNN
-source .venv/bin/activate
+set -euo pipefail
+
+cd "${PROJECT_ROOT:-/SCRATCH/j20morli/Resolution_Transformer_CNN}"
+source "${VENV_PATH:-.venv/bin/activate}"
 
 export WANDB_DIR="$WORK/wandb"
 export WANDB_MODE=offline
@@ -29,11 +31,12 @@ MEASURED_EPOCHS=1
 ESTIMATED_EPOCHS="${ESTIMATED_EPOCHS:-300}"
 TRAIN_SAMPLES="${TRAIN_SAMPLES:-1281167}"
 BACKWARD_MULTIPLIER="${BACKWARD_MULTIPLIER:-3.0}"
-OUTPUT_ROOT="${/SCRATCH/j20morli/results_resolution/training_time/vit_s_16/$SLURM_ARRAY_JOB_ID}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-/SCRATCH/j20morli/results_resolution/training_time/vit_s_16/${SLURM_ARRAY_JOB_ID:-manual}}"
 DATA_PATH=/SCRATCH/datasets/imagenet
 RUN_NAME="vit_custom_16_12_6_384_1536_${IMAGE_SIZE}"
 RUN_DIR="${OUTPUT_ROOT}/${RUN_NAME}"
 LOG_FILE="${RUN_DIR}/resolution_CNN_ViT_${RUN_NAME}.log"
+mkdir -p "$OUTPUT_ROOT"
 
 echo "Measuring ViT-S/16 with sequence length ${SEQUENCE_LENGTH} and image size ${IMAGE_SIZE}"
 
